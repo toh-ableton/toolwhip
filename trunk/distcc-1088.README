@@ -1,0 +1,84 @@
+Apple distcc 1088 Linux patch
+Mark Mentovai
+2009 March 10
+
+distcc 1088:
+http://www.opensource.apple.com/darwinsource/tarballs/other/distcc-1088.tar.gz
+
+THE DEAL
+--------
+Note: This work is mostly being abandoned in favor of integrating a newer
+distcc with pump mode into the Xcode build.
+
+This allows Apple-style distcc 1088 to be built for Linux, allowing Linux
+systems to serve as distcc servers for Xcode builds.
+
+Apple distcc 1088 has several changes relative to distcc 2.18.3.  Focusing on
+distccd:
+ - zeroconf/DNS-SD support to provide the "xcodedistcc" service
+ - conveys host information such as OS, hardware, and available compilers to
+   clients to allow them to choose a set of distccd servers
+ - precompiled headers are supported via a new "indirect" mode
+
+This patch allows zeroconf/DNS-SD to function and provides a mechanism for the
+distccd server to pretend to be a Mac when queried by Xcode to determine its
+capabilities.  Precompiled headers would be supported, but this is not terribly
+useful as GCC precompiled headers are specific to the compiler binary that
+created them, and the compiler binary running on Linux will necessarily be
+different than the "official" Apple one running on a Mac.  In order to use this,
+you must disable precompiled headers.  You may continue to use prefix header
+injection.
+
+This patch uses Avahi for DNS-SD support.  When working on an x86_64 system,
+the 32-bit Avahi libraries must be availalbe.  See the "FUNKY" section below.
+
+BUILD
+-----
+mkdir distcc.obj
+cd distcc.obj
+CC="gcc -m32" CFLAGS="-O2" LIBS="-ldns_sd -lpthread" \
+  sh ../distcc-1088/distcc_dist/configure --prefix=/Developer
+make distccd
+
+INSTALL
+-------
+cp distccd /Developer/usr/bin/distccd
+cat > /Developer/usr/share/distcc_compilers << __EOF__
+bin/gcc-4.2
+bin/g++-4.2
+__EOF__
+
+RUN
+---
+/Developer/usr/bin/distccd --daemon --system-version="10.5.6 (9G55, i386)"
+
+FUNKY
+-----
+This installs the Ubuntu 32-bit Avahi libraries to /usr/local/lib32.  Use this
+on an x86_64 Ubuntu system.  This works with Ubuntu 8.04.  After running this
+script, be sure that ld.so will consult /usr/local/lib32 by creating
+/etc/ld.so.conf.d/local-32.conf, putting /usr/local/lib32 into that file,
+and running ldconfig.
+
+mkdir -p /usr/local/lib32
+for deb in avahi/libavahi-compat-libdnssd1_0.6.22-2ubuntu4.1_i386.deb \
+           avahi/libavahi-client3_0.6.22-2ubuntu4.1_i386.deb \
+           avahi/libavahi-common3_0.6.22-2ubuntu4.1_i386.deb \
+           dbus/libdbus-1-3_1.1.20-1ubuntu3.1_i386.deb; do
+  WORKDIR=$(mktemp -d -p /tmp)
+  pushd ${WORKDIR}
+  letter=$(echo ${deb} | sed -e "s/^\\(.\\).*$/\\1/")
+  curl -O http://mirrors.kernel.org/ubuntu/pool/main/${letter}/${deb}
+  ar x $(basename ${deb})
+  tar xf data.tar.gz
+  for lib in usr/lib/* ; do
+    libbase=$(basename ${lib})
+    mv ${lib} /usr/local/lib32/${libbase}
+    so=$(echo ${libbase} | sed -e "s/^\\(.*\\.so\\)\\..*$/\\1/")
+    if [ ${so} != ${libbase} ] ; then
+      ln -s -f ${libbase} /usr/local/lib32/${so}
+    fi
+  done
+  popd
+  rm -rf ${WORKDIR}
+done

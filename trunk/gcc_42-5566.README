@@ -1,0 +1,89 @@
+Apple gcc_42 5566 Linux cross-toolchain patch
+Mark Mentovai
+2009 March 18
+
+gcc_42-5566:
+http://www.opensource.apple.com/darwinsource/tarballs/other/gcc_42-5566.tar.gz
+
+THE DEAL
+--------
+This patch allows the Apple-customized version of gcc 4.2 to be built on Linux,
+forming a portion of a cross toolchain able to produce Mac OS X binaries.
+
+REQUIREMENTS
+------------
+Install both cctools and ld64 to /Developer.  See cctools-698.1.README and
+ld64-85.2.1.README.
+
+Copy the appropriate Mac OS X SDK onto the Linux system.  For example:
+
+linux$ mkdir -p /Developer/SDKs
+mac$ rsync -az /Developer/SDKs/MacOSX10.5.sdk/ linux:/Developer/SDKs/MacOSX10.5.sdk/
+
+Copy additional SDKs as needed.
+
+BUILD
+-----
+mkdir gcc.i386.obj
+cd gcc.i386.obj
+CC="gcc -m32" CXX="g++ -m32" CFLAGS="-O2" CXXFLAGS="-O2" \
+PATH="${PATH}:/Developer/usr/bin" \
+sh ../gcc_42-5566/configure --disable-checking --enable-werror --prefix=/usr \
+  --mandir=/usr/share/man --enable-languages=c,objc,c++,obj-c++ \
+  --program-transform-name='/^[cg][^.-]*$/s/$/-4.2/' --with-slibdir=/usr/lib \
+  --build=i686-pc-linux-gnu --with-gxx-include-dir=/usr/include/c++/4.0.0 \
+  --host=i686-pc-linux-gnu --target=i686-apple-darwin9 \
+  --with-sysroot=/Developer/SDKs/MacOSX10.5.sdk
+PATH="${PATH}:/Developer/usr/bin" make
+
+for i in gcc g++ ; do
+  gcc -m32 -O2 -I../usr_include -I../gcc_42-5566/include -I../gcc_42-5566/gcc \
+    -I../gcc_42-5566/gcc/config -D__LITTLE_ENDIAN__ \
+    "-DPDN=\"-apple-darwin9-$i-4.2.1\"" ../gcc_42-5566/driverdriver.c \
+    -Llibiberty -liberty -o $i-4.2
+done
+
+mkdir ../gcc.ppc.obj
+cd ../gcc.ppc.obj
+CC="gcc -m32" CXX="g++ -m32" CFLAGS="-O2" CXXFLAGS="-O2" \
+PATH="${PATH}:/Developer/usr/bin" \
+sh ../gcc_42-5566/configure --disable-checking --enable-werror --prefix=/usr \
+  --mandir=/usr/share/man --enable-languages=c,objc,c++,obj-c++ \
+  --program-transform-name='/^[cg][^.-]*$/s/$/-4.2/' --with-slibdir=/usr/lib \
+  --build=i686-pc-linux-gnu --with-gxx-include-dir=/usr/include/c++/4.0.0 \
+  --host=i686-pc-linux-gnu --target=powerpc-apple-darwin9 \
+  --with-sysroot=/Developer/SDKs/MacOSX10.5.sdk
+PATH="${PATH}:/Developer/usr/bin" make
+
+INSTALL
+-------
+cd ../gcc.i386.obj
+mkdir -p /Developer/usr/bin
+cp gcc/xgcc /Developer/usr/bin/i686-apple-darwin9-gcc-4.2.1
+cp gcc/g++ /Developer/usr/bin/i686-apple-darwin9-g++-4.2.1
+mkdir -p /Developer/usr/libexec/gcc/i686-apple-darwin9/4.2.1
+cp gcc/cc1 gcc/cc1obj gcc/cc1objplus gcc/cc1plus gcc/collect2 \
+  /Developer/usr/libexec/gcc/i686-apple-darwin9/4.2.1
+ln -sf ../../../../bin/as \
+       /Developer/usr/libexec/gcc/i686-apple-darwin9/4.2.1/as
+ln -sf ../../../../bin/ld \
+       /Developer/usr/libexec/gcc/i686-apple-darwin9/4.2.1/ld
+mkdir -p /Developer/usr/lib/gcc/i686-apple-darwin9
+ln -sf ../../../../SDKs/MacOSX10.5.sdk/usr/lib/gcc/i686-apple-darwin9/4.2.1 \
+       /Developer/usr/lib/gcc/i686-apple-darwin9/4.2.1
+
+cp gcc-4.2 g++-4.2 /Developer/usr/bin
+
+cd ../gcc.ppc.obj
+cp gcc/xgcc /Developer/usr/bin/powerpc-apple-darwin9-gcc-4.2.1
+cp gcc/g++ /Developer/usr/bin/powerpc-apple-darwin9-g++-4.2.1
+mkdir -p /Developer/usr/libexec/gcc/powerpc-apple-darwin9/4.2.1
+cp gcc/cc1 gcc/cc1obj gcc/cc1objplus gcc/cc1plus gcc/collect2 \
+  /Developer/usr/libexec/gcc/powerpc-apple-darwin9/4.2.1
+ln -sf ../../../../bin/as \
+       /Developer/usr/libexec/gcc/powerpc-apple-darwin9/4.2.1/as
+ln -sf ../../../../bin/ld \
+       /Developer/usr/libexec/gcc/powerpc-apple-darwin9/4.2.1/ld
+mkdir -p /Developer/usr/lib/gcc/powerpc-apple-darwin9
+ln -sf ../../../../SDKs/MacOSX10.5.sdk/usr/lib/gcc/powerpc-apple-darwin9/4.2.1 \
+       /Developer/usr/lib/gcc/powerpc-apple-darwin9/4.2.1

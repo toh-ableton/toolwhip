@@ -1,0 +1,73 @@
+Apple cctools 698.1 Linux cross-toolchain patch
+Mark Mentovai
+2009 March 18
+
+cctools 698.1:
+http://www.opensource.apple.com/darwinsource/tarballs/apsl/cctools-698.1.tar.gz
+
+THE DEAL
+--------
+This patch allows the Apple cctools (essentially Apple's binutils equivalent)
+to be built on Linux, forming a portion of a cross toolchain able to produce
+Mac OS X binaries.
+
+ACKNOWLEDGEMENTS
+----------------
+This is similar to odcctools, http://odcctools.darwinports.com/.  odcctools
+has not been updated in over two years and does not apply to the latest
+toolchain, such as the 10.5/Xcode 3 toolchain.  Some portions of odcctools
+were consulted in developing these patches.
+
+REQUIREMENTS
+------------
+This requires a suitable usr_include be located next to the cctools-698.1
+directory, for access to additional Mac headers.  See usr_include.README.
+
+BUILD
+-----
+cd cctools-698.1
+CC="gcc -m32 -std=gnu99" CFLAGS="-O2" make -f Makefile.linux
+
+Note: -m32 is required on x86_64 systems because cctools is not 64-bit
+tolerant.  Additional libraries or library symbolic links may be needed.
+
+Note: Although cctools is not tolerant of running in 64-bit mode, it is
+perfectly capable of dealing with 64-bit Mach-O objects.
+
+INSTALL
+-------
+mkdir -p /Developer/usr/bin
+cp ar/ar as/bin/as ld/ld_classic misc/codesign_allocate misc/install_name_tool misc/libtool misc/lipo misc/nm misc/nmedit misc/pagestuff misc/segedit misc/size misc/strings misc/strip otool/otool /Developer/usr/bin
+ln -sf libtool /Developer/usr/bin/ranlib
+mkdir -p /Developer/usr/libexec/gcc/darwin/i386
+mkdir -p /Developer/usr/libexec/gcc/darwin/x86_64
+mkdir -p /Developer/usr/libexec/gcc/darwin/ppc
+mkdir -p /Developer/usr/libexec/gcc/darwin/ppc64
+cp as/libexec/gcc/darwin/i386/as /Developer/usr/libexec/gcc/darwin/i386
+cp as/libexec/gcc/darwin/x86_64/as /Developer/usr/libexec/gcc/darwin/x86_64
+cp as/libexec/gcc/darwin/ppc/as /Developer/usr/libexec/gcc/darwin/ppc
+cp as/libexec/gcc/darwin/ppc64/as /Developer/usr/libexec/gcc/darwin/ppc64
+
+# note that we even make this generic link for as, even though there are more
+# specific assemblers in /Developer/usr/libexec/gcc/darwin.  this is because
+# apple gcc will always pass -arch to as, and each architecture-specific as
+# only understands its own subarchitectures; when the gcc build tries producing
+# some 64-bit modules such as kext64/crt3.o, it will attempt to invoke
+# i686-apple-darwin9-as -arch x86_64, which can only work if
+# i686-apple-darwin9-as is the as driver, not an individual architecture's
+# assembler.
+for i in ar as lipo nm strip ; do
+  ln -sf $i /Developer/usr/bin/i686-apple-darwin9-$i
+  ln -sf $i /Developer/usr/bin/powerpc-apple-darwin9-$i
+done
+
+# ranlib can't be a script, it needs to be a link, because it behaves as
+# libtool when not invoked as ranlib.  So create
+# /Developer/usr/bin/i686-apple-darwin9-ranlib as a script, containing:
+cat > /Developer/usr/bin/i686-apple-darwin9-ranlib << __EOF__
+#!/bin/sh
+exec "\$(dirname \${0})/ranlib" "\${@}"
+exit 1
+__EOF__
+chmod a+rx /Developer/usr/bin/i686-apple-darwin9-ranlib
+ln /Developer/usr/bin/i686-apple-darwin9-ranlib /Developer/usr/bin/powerpc-apple-darwin9-ranlib

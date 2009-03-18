@@ -1,0 +1,1400 @@
+diff -U8 -r -N ld64-85.2.1.orig/Makefile.linux ld64-85.2.1/Makefile.linux
+--- ld64-85.2.1.orig/Makefile.linux	1969-12-31 19:00:00.000000000 -0500
++++ ld64-85.2.1/Makefile.linux	2009-03-06 15:29:42.014876000 -0500
+@@ -0,0 +1,2 @@
++all clean: src
++	@for i in $^ ; do $(MAKE) -C $${i} -f Makefile.linux $@ ; done
+diff -U8 -r -N ld64-85.2.1.orig/src/ArchiveReader.hpp ld64-85.2.1/src/ArchiveReader.hpp
+--- ld64-85.2.1.orig/src/ArchiveReader.hpp	2008-07-10 21:15:14.000000000 -0400
++++ ld64-85.2.1/src/ArchiveReader.hpp	2009-03-06 13:35:24.742888000 -0500
+@@ -38,16 +38,21 @@
+ #include <ext/hash_map>
+ 
+ #include "MachOFileAbstraction.hpp"
+ #include "ObjectFile.h"
+ #include "MachOReaderRelocatable.hpp"
+ #if LTO_SUPPORT
+ 	#include "LTOReader.hpp"
+ #endif
++
++/* From cctools-698.1/include/stuff/ofile.h */
++#ifndef AR_EFMT1
++#define AR_EFMT1	"#1/"		/* extended format #1 */
++#endif
+  
+ namespace archive {
+ 
+ typedef const struct ranlib* ConstRanLibPtr;
+ 
+ template <typename A>
+ class Reader : public ObjectFile::Reader
+ {
+diff -U8 -r -N ld64-85.2.1.orig/src/MachOReaderRelocatable.hpp ld64-85.2.1/src/MachOReaderRelocatable.hpp
+--- ld64-85.2.1.orig/src/MachOReaderRelocatable.hpp	2008-04-29 18:47:43.000000000 -0400
++++ ld64-85.2.1/src/MachOReaderRelocatable.hpp	2009-03-06 13:07:18.152470000 -0500
+@@ -34,16 +34,17 @@
+ #include <set>
+ #include <algorithm>
+ 
+ #include "MachOFileAbstraction.hpp"
+ #include "Architectures.hpp"
+ #include "ObjectFile.h"
+ #include "dwarf2.h"
+ #include "debugline.h"
++#include "strl.h"
+ 
+ 
+ //
+ //
+ //	To implement architecture xxx, you must write template specializations for the following six methods:
+ //			Reader<xxx>::validFile()
+ //			Reader<xxx>::validSectionType()
+ //			Reader<xxx>::addRelocReference()
+diff -U8 -r -N ld64-85.2.1.orig/src/MachOWriterExecutable.hpp ld64-85.2.1/src/MachOWriterExecutable.hpp
+--- ld64-85.2.1.orig/src/MachOWriterExecutable.hpp	2008-05-07 15:30:53.000000000 -0400
++++ ld64-85.2.1/src/MachOWriterExecutable.hpp	2009-03-06 14:21:45.828651000 -0500
+@@ -20,24 +20,25 @@
+  * limitations under the License.
+  *
+  * @APPLE_LICENSE_HEADER_END@
+  */
+ 
+ #ifndef __EXECUTABLE_MACH_O__
+ #define __EXECUTABLE_MACH_O__
+ 
++#include <signal.h>
+ #include <stdint.h>
+ #include <stddef.h>
+ #include <fcntl.h>
+ #include <sys/time.h>
+-#include <uuid/uuid.h>
++#include "uuid.h"
+ #include <mach/i386/thread_status.h>
+ #include <mach/ppc/thread_status.h>
+-#include <CommonCrypto/CommonDigest.h>
++#include <openssl/md5.h>
+ 
+ #include <vector>
+ #include <algorithm>
+ #include <map>
+ #include <set>
+ #include <ext/hash_map>
+ 
+ #include "ObjectFile.h"
+@@ -4507,48 +4508,48 @@
+ 						}
+ 					}
+ 				}
+ 			}
+ 		}
+ 
+ 		// update content based UUID
+ 		if ( fOptions.getUUIDMode() == Options::kUUIDContent ) {
+-			uint8_t digest[CC_MD5_DIGEST_LENGTH];
++			uint8_t digest[MD5_DIGEST_LENGTH];
+ 			if ( streaming ) {
+ 				// if output file file did not fit in memory, re-read file to generate md5 hash
+ 				uint32_t kMD5BufferSize = 16*1024;
+ 				uint8_t* md5Buffer = (uint8_t*)::malloc(kMD5BufferSize);
+ 				if ( md5Buffer != NULL ) {
+-					CC_MD5_CTX md5State;
+-					CC_MD5_Init(&md5State);
++					MD5_CTX md5State;
++					MD5_Init(&md5State);
+ 					::lseek(fd, 0, SEEK_SET);
+ 					ssize_t len;
+ 					while ( (len = ::read(fd, md5Buffer, kMD5BufferSize)) > 0 ) 
+-						CC_MD5_Update(&md5State, md5Buffer, len);
+-					CC_MD5_Final(digest, &md5State);
++						MD5_Update(&md5State, md5Buffer, len);
++					MD5_Final(digest, &md5State);
+ 					::free(md5Buffer);
+ 				}
+ 				else {
+ 					// if malloc fails, fall back to random uuid
+ 					::uuid_generate_random(digest);
+ 				}
+ 				fUUIDAtom->setContent(digest);
+ 				uint32_t uuidOffset = ((SectionInfo*)fUUIDAtom->getSection())->fFileOffset + fUUIDAtom->getSectionOffset();
+ 				fUUIDAtom->copyRawContent(atomBuffer);
+ 				::pwrite(fd, atomBuffer, fUUIDAtom->getSize(), uuidOffset);
+ 			}
+ 			else {
+ 				// if output file fit in memory, just genrate an md5 hash in memory
+ 			#if 1
+ 				// temp hack for building on Tiger
+-				CC_MD5_CTX md5State;
+-				CC_MD5_Init(&md5State);
+-				CC_MD5_Update(&md5State, wholeBuffer, size);
+-				CC_MD5_Final(digest, &md5State);
++				MD5_CTX md5State;
++				MD5_Init(&md5State);
++				MD5_Update(&md5State, wholeBuffer, size);
++				MD5_Final(digest, &md5State);
+ 			#else
+ 				CC_MD5(wholeBuffer, size, digest);
+ 			#endif
+ 				fUUIDAtom->setContent(digest);
+ 				uint32_t uuidOffset = ((SectionInfo*)fUUIDAtom->getSection())->fFileOffset + fUUIDAtom->getSectionOffset();
+ 				fUUIDAtom->copyRawContent(&wholeBuffer[uuidOffset]);
+ 			}
+ 		}
+diff -U8 -r -N ld64-85.2.1.orig/src/Makefile.linux ld64-85.2.1/src/Makefile.linux
+--- ld64-85.2.1.orig/src/Makefile.linux	1969-12-31 19:00:00.000000000 -0500
++++ ld64-85.2.1/src/Makefile.linux	2009-03-06 14:59:42.220365000 -0500
+@@ -0,0 +1,42 @@
++NULL =
++
++CFILES_ld64 = \
++	arc4random-fbsd.c \
++	debugline.c \
++	gen_uuid-uuid.c \
++	ld_version.c \
++	pack-uuid.c \
++	strlcpy-fbsd.c \
++	unpack-uuid.c \
++	$(NULL)
++COBJS_ld64 = $(CFILES_ld64:.c=.o)
++
++CCFILES_ld64 = \
++	Options.cpp \
++	ld.cpp \
++	$(NULL)
++CCOBJS_ld64 = $(CCFILES_ld64:.cpp=.o)
++
++CCFILES_rebase = rebase.cpp
++CCOBJS_rebase = $(CCFILES_rebase:.cpp=.o)
++
++XCFLAGS = -D__LITTLE_ENDIAN__ -I../../usr_include -I.
++
++all: ld64 rebase
++
++ld64: $(COBJS_ld64) $(CCOBJS_ld64)
++	$(CXX) -o $@ $^ -lcrypto
++
++rebase: $(CCOBJS_rebase)
++	$(CXX) -o $@ $^
++
++.c.o:
++	$(CC) $(CFLAGS) $(XCFLAGS) -c -o $@ $<
++
++.cpp.o:
++	$(CXX) $(CXXFLAGS) $(XCFLAGS) -c -o $@ $<
++
++clean:
++	-rm -rf \
++	  ld64 $(COBJS_ld64) $(CCOBJS_ld64) \
++	  rebase $(CCOBJS_rebase)
+diff -U8 -r -N ld64-85.2.1.orig/src/Options.cpp ld64-85.2.1/src/Options.cpp
+--- ld64-85.2.1.orig/src/Options.cpp	2008-07-10 21:15:14.000000000 -0400
++++ ld64-85.2.1/src/Options.cpp	2009-03-06 14:06:01.820598000 -0500
+@@ -24,20 +24,20 @@
+ 
+ 
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <mach/vm_prot.h>
+ #include <fcntl.h>
+ #include <vector>
+ 
+-#include "configure.h"
+ #include "Options.h"
+ #include "Architectures.hpp"
+ #include "MachOFileAbstraction.hpp"
++#include "strl.h"
+ 
+ extern void printLTOVersion(Options &opts);
+ 
+ 
+ static bool			sEmitWarnings = true;
+ static const char*	sWarningsSideFilePath = NULL;
+ static FILE*		sWarningsSideFile = NULL;
+ 
+@@ -86,18 +86,25 @@
+ 	  fUndefinedTreatment(kUndefinedError), fMessagesPrefixedWithArchitecture(false), 
+ 	  fWeakReferenceMismatchTreatment(kWeakReferenceMismatchNonWeak),
+ 	  fClientName(NULL),
+ 	  fUmbrellaName(NULL), fInitFunctionName(NULL), fDotOutputFile(NULL), fExecutablePath(NULL),
+ 	  fBundleLoader(NULL), fDtraceScriptName(NULL), fSegAddrTablePath(NULL), fMapPath(NULL), 
+ 	  fZeroPageSize(ULLONG_MAX), fStackSize(0), fStackAddr(0), fExecutableStack(false), fMinimumHeaderPad(32),
+ 	  fCommonsMode(kCommonsIgnoreDylibs),  fUUIDMode(kUUIDContent), fLocalSymbolHandling(kLocalSymbolsAll), fWarnCommons(false), 
+ 	  fVerbose(false), fKeepRelocations(false), fWarnStabs(false),
+-	  fTraceDylibSearching(false), fPause(false), fStatistics(false), fPrintOptions(false),
+-	  fSharedRegionEligible(false), fPrintOrderFileStatistics(false),  
++	  fTraceDylibSearching(false), fPause(false), 
++#ifdef GENUINE_MACH
++	  fStatistics(false),
++#endif /* GENUINE_MACH */
++	  fPrintOptions(false),
++	  fSharedRegionEligible(false),
++#ifdef GENUINE_MACH
++	  fPrintOrderFileStatistics(false),  
++#endif /* GENUINE_MACH */
+ 	  fReadOnlyx86Stubs(false), fPositionIndependentExecutable(false), fMaxMinimumHeaderPad(false),
+ 	  fDeadStripDylibs(false),  fAllowTextRelocs(false), fWarnTextRelocs(false), 
+ 	  fUsingLazyDylibLinking(false), fEncryptable(true), fSaveTempFiles(false)
+ {
+ 	this->checkForClassic(argc, argv);
+ 	this->parsePreCommandLineEnvironmentSettings();
+ 	this->parse(argc, argv);
+ 	this->parsePostCommandLineEnvironmentSettings();
+@@ -1694,19 +1701,21 @@
+ 				 if ( (argv[i+1]==NULL) || (argv[i+2]==NULL) || (argv[i+3]==NULL) )
+ 					throw "-sectorder missing <segment> <section> <file-path>";
+ 				parseSectionOrderFile(argv[i+1], argv[i+2], argv[i+3]);
+ 				i += 3;
+ 			}
+ 			else if ( strcmp(arg, "-order_file") == 0 ) {
+ 				parseOrderFile(argv[++i], false);
+ 			}
++#ifdef GENUINE_MACH
+ 			else if ( strcmp(arg, "-order_file_statistics") == 0 ) {
+ 				fPrintOrderFileStatistics = true;
+ 			}
++#endif /* GENUINE_MACH */
+ 			// ??? Deprecate segcreate.
+ 			// -sectcreate puts whole files into a section in the output.
+ 			else if ( (strcmp(arg, "-sectcreate") == 0) || (strcmp(arg, "-segcreate") == 0) ) {
+ 				 if ( (argv[i+1]==NULL) || (argv[i+2]==NULL) || (argv[i+3]==NULL) )
+ 					throw "-sectcreate missing <segment> <section> <file-path>";
+ 				addSection(argv[i+1], argv[i+2], argv[i+3]);
+ 				i += 3;
+ 			}
+@@ -2197,19 +2206,21 @@
+ 				fKeepRelocations = true;
+ 			}
+ 			else if ( strcmp(arg, "-warn_stabs") == 0 ) {
+ 				fWarnStabs = true;
+ 			}
+ 			else if ( strcmp(arg, "-pause") == 0 ) {
+ 				fPause = true;
+ 			}
++#ifdef GENUINE_MACH
+ 			else if ( strcmp(arg, "-print_statistics") == 0 ) {
+ 				fStatistics = true;
+ 			}
++#endif /* GENUINE_MACH */
+ 			else if ( strcmp(arg, "-d") == 0 ) {
+ 				fReaderOptions.fMakeTentativeDefinitionsReal = true;
+ 			}
+ 			else if ( strcmp(arg, "-v") == 0 ) {
+ 				// previously handled by buildSearchPaths()
+ 			}
+ 			else if ( strcmp(arg, "-Z") == 0 ) {
+ 				// previously handled by buildSearchPaths()
+@@ -2502,18 +2513,20 @@
+ 	}
+ 
+ 	if (getenv("LD_PRINT_OPTIONS") != NULL)
+ 		fPrintOptions = true;
+ 
+ 	if (fReaderOptions.fTraceDylibs || fReaderOptions.fTraceArchives)
+ 		fReaderOptions.fTraceOutputFile = getenv("LD_TRACE_FILE");
+ 
++#ifdef GENUINE_MACH
+ 	if (getenv("LD_PRINT_ORDER_FILE_STATISTICS") != NULL)
+ 		fPrintOrderFileStatistics = true;
++#endif /* GENUINE_MACH */
+ 
+ 	if (getenv("LD_SPLITSEGS_NEW_LIBRARIES") != NULL)
+ 		fSplitSegs = true;
+ 		
+ 	if (getenv("LD_NO_ENCRYPT") != NULL)
+ 		fEncryptable = false;
+ 		
+ 	sWarningsSideFilePath = getenv("LD_WARN_FILE");
+diff -U8 -r -N ld64-85.2.1.orig/src/arc4random-fbsd.c ld64-85.2.1/src/arc4random-fbsd.c
+--- ld64-85.2.1.orig/src/arc4random-fbsd.c	1969-12-31 19:00:00.000000000 -0500
++++ ld64-85.2.1/src/arc4random-fbsd.c	2009-03-06 14:29:47.010826000 -0500
+@@ -0,0 +1,231 @@
++/* Libc-498.1.1/gen/arc4random-fbsd.c (modified) */
++/*
++ * Arc4 random number generator for OpenBSD.
++ * Copyright 1996 David Mazieres <dm@lcs.mit.edu>.
++ *
++ * Modification and redistribution in source and binary forms is
++ * permitted provided that due credit is given to the author and the
++ * OpenBSD project (for instance by leaving this copyright notice
++ * intact).
++ */
++
++/*
++ * This code is derived from section 17.1 of Applied Cryptography,
++ * second edition, which describes a stream cipher allegedly
++ * compatible with RSA Labs "RC4" cipher (the actual description of
++ * which is a trade secret).  The same algorithm is used as a stream
++ * cipher called "arcfour" in Tatu Ylonen's ssh package.
++ *
++ * Here the stream cipher has been modified always to include the time
++ * when initializing the state.  That makes it impossible to
++ * regenerate the same random sequence twice, so this can't be used
++ * for encryption, but will generate good random numbers.
++ *
++ * RC4 is a registered trademark of RSA Laboratories.
++ */
++
++#include "arc4random.h"
++
++#include <sys/cdefs.h>
++
++#include <sys/types.h>
++#include <sys/time.h>
++#include <stdlib.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <pthread.h>
++
++struct arc4_stream {
++	u_int8_t i;
++	u_int8_t j;
++	u_int8_t s[256];
++};
++
++static pthread_mutex_t	arc4random_mtx = PTHREAD_MUTEX_INITIALIZER;
++
++#define	RANDOMDEV	"/dev/urandom"
++#define	THREAD_LOCK()						\
++	do {							\
++		pthread_mutex_lock(&arc4random_mtx);		\
++	} while (0)
++
++#define	THREAD_UNLOCK()						\
++	do {							\
++		pthread_mutex_unlock(&arc4random_mtx);		\
++	} while (0)
++
++static struct arc4_stream rs;
++static int rs_initialized;
++static int rs_stired;
++
++static inline u_int8_t arc4_getbyte(struct arc4_stream *);
++static void arc4_stir(struct arc4_stream *);
++
++static inline void
++arc4_init(as)
++	struct arc4_stream *as;
++{
++	int     n;
++
++	for (n = 0; n < 256; n++)
++		as->s[n] = n;
++	as->i = 0;
++	as->j = 0;
++}
++
++static inline void
++arc4_addrandom(as, dat, datlen)
++	struct arc4_stream *as;
++	u_char *dat;
++	int     datlen;
++{
++	int     n;
++	u_int8_t si;
++
++	as->i--;
++	for (n = 0; n < 256; n++) {
++		as->i = (as->i + 1);
++		si = as->s[as->i];
++		as->j = (as->j + si + dat[n % datlen]);
++		as->s[as->i] = as->s[as->j];
++		as->s[as->j] = si;
++	}
++}
++
++static void
++arc4_stir(as)
++	struct arc4_stream *as;
++{
++	int     fd, n;
++	struct {
++		struct timeval tv;
++		pid_t pid;
++		u_int8_t rnd[128 - sizeof(struct timeval) - sizeof(pid_t)];
++	}       rdat;
++
++	gettimeofday(&rdat.tv, NULL);
++	rdat.pid = getpid();
++	fd = open(RANDOMDEV, O_RDONLY, 0);
++	if (fd >= 0) {
++		(void) read(fd, rdat.rnd, sizeof(rdat.rnd));
++		close(fd);
++	} 
++	/* fd < 0?  Ah, what the heck. We'll just take whatever was on the
++	 * stack... */
++
++	arc4_addrandom(as, (u_char *) &rdat, sizeof(rdat));
++
++	/*
++	 * Throw away the first N bytes of output, as suggested in the
++	 * paper "Weaknesses in the Key Scheduling Algorithm of RC4"
++	 * by Fluher, Mantin, and Shamir.  N=1024 is based on
++	 * suggestions in the paper "(Not So) Random Shuffles of RC4"
++	 * by Ilya Mironov.
++	 */
++	for (n = 0; n < 1024; n++)
++		arc4_getbyte(as);
++}
++
++static inline u_int8_t
++arc4_getbyte(as)
++	struct arc4_stream *as;
++{
++	u_int8_t si, sj;
++
++	as->i = (as->i + 1);
++	si = as->s[as->i];
++	as->j = (as->j + si);
++	sj = as->s[as->j];
++	as->s[as->i] = sj;
++	as->s[as->j] = si;
++
++	return (as->s[(si + sj) & 0xff]);
++}
++
++static inline u_int32_t
++arc4_getword(as)
++	struct arc4_stream *as;
++{
++	u_int32_t val;
++
++	val = arc4_getbyte(as) << 24;
++	val |= arc4_getbyte(as) << 16;
++	val |= arc4_getbyte(as) << 8;
++	val |= arc4_getbyte(as);
++
++	return (val);
++}
++
++static void
++arc4_check_init(void)
++{
++	if (!rs_initialized) {
++		arc4_init(&rs);
++		rs_initialized = 1;
++	}
++}
++
++static void
++arc4_check_stir(void)
++{
++	if (!rs_stired) {
++		arc4_stir(&rs);
++		rs_stired = 1;
++	}
++}
++
++void
++arc4random_stir()
++{
++	THREAD_LOCK();
++	arc4_check_init();
++	arc4_stir(&rs);
++	THREAD_UNLOCK();
++}
++
++void
++arc4random_addrandom(dat, datlen)
++	u_char *dat;
++	int     datlen;
++{
++	THREAD_LOCK();
++	arc4_check_init();
++	arc4_check_stir();
++	arc4_addrandom(&rs, dat, datlen);
++	THREAD_UNLOCK();
++}
++
++u_int32_t
++arc4random()
++{
++	u_int32_t rnd;
++
++	THREAD_LOCK();
++	arc4_check_init();
++	arc4_check_stir();
++	rnd = arc4_getword(&rs);
++	THREAD_UNLOCK();
++
++	return (rnd);
++}
++
++#if 0
++/*-------- Test code for i386 --------*/
++#include <stdio.h>
++#include <machine/pctr.h>
++int
++main(int argc, char **argv)
++{
++	const int iter = 1000000;
++	int     i;
++	pctrval v;
++
++	v = rdtsc();
++	for (i = 0; i < iter; i++)
++		arc4random();
++	v = rdtsc() - v;
++	v /= iter;
++
++	printf("%qd cycles\n", v);
++}
++#endif
+diff -U8 -r -N ld64-85.2.1.orig/src/arc4random.h ld64-85.2.1/src/arc4random.h
+--- ld64-85.2.1.orig/src/arc4random.h	1969-12-31 19:00:00.000000000 -0500
++++ ld64-85.2.1/src/arc4random.h	2009-03-06 14:28:30.145673000 -0500
+@@ -0,0 +1,16 @@
++#ifndef _ARC4RANDOM_H
++#define _ARC4RANDOM_H
++
++#include <sys/types.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++u_int32_t arc4random();
++
++#ifdef __cplusplus
++} /* extern "C" */
++#endif
++
++#endif /* _ARC4RANDOM_H */
+diff -U8 -r -N ld64-85.2.1.orig/src/gen_uuid-uuid.c ld64-85.2.1/src/gen_uuid-uuid.c
+--- ld64-85.2.1.orig/src/gen_uuid-uuid.c	1969-12-31 19:00:00.000000000 -0500
++++ ld64-85.2.1/src/gen_uuid-uuid.c	2009-03-06 14:34:10.179620000 -0500
+@@ -0,0 +1,82 @@
++/* Libc-498.1.1/uuid/gen_uuid-uuid.c (partial) */
++/*
++ * gen_uuid.c --- generate a DCE-compatible uuid
++ *
++ * Copyright (C) 1996, 1997, 1998, 1999 Theodore Ts'o.
++ *
++ * %Begin-Header%
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, and the entire permission notice in its entirety,
++ *    including the disclaimer of warranties.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. The name of the author may not be used to endorse or promote
++ *    products derived from this software without specific prior
++ *    written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
++ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, ALL OF
++ * WHICH ARE HEREBY DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
++ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
++ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
++ * USE OF THIS SOFTWARE, EVEN IF NOT ADVISED OF THE POSSIBILITY OF SUCH
++ * DAMAGE.
++ * %End-Header%
++ */
++
++#include "uuid.h"
++#include <sys/types.h>
++#include <string.h>
++#include "arc4random.h"
++#include "uuidP.h"
++
++/*
++ * Generate a series of random bytes, using arc4random
++ */
++static void get_random_bytes(void *buf, int nbytes)
++{
++	unsigned char *cp = (unsigned char *) buf;
++	u_int32_t u;
++	int n = nbytes / sizeof(u);
++
++	while (n-- > 0) {
++		u = arc4random();
++		memcpy(cp, &u, sizeof(u));
++		cp += sizeof(u);
++	}
++	if ((n = nbytes % sizeof(u)) > 0) {
++		u = arc4random();
++		memcpy(cp, &u, n);
++	}
++	return;
++}
++
++void uuid_generate_random(uuid_t out)
++{
++	uuid_t	buf;
++	struct uuid uu;
++
++	get_random_bytes(buf, sizeof(buf));
++	uuid_unpack(buf, &uu);
++
++	uu.clock_seq = (uu.clock_seq & 0x3FFF) | 0x8000;
++	uu.time_hi_and_version = (uu.time_hi_and_version & 0x0FFF) | 0x4000;
++	uuid_pack(&uu, out);
++}
++
++/*
++ * This is the generic front-end
++ */
++void uuid_generate(uuid_t out)
++{
++	uuid_generate_random(out);
++}
+diff -U8 -r -N ld64-85.2.1.orig/src/ld.cpp ld64-85.2.1/src/ld.cpp
+--- ld64-85.2.1.orig/src/ld.cpp	2008-12-11 20:16:55.000000000 -0500
++++ ld64-85.2.1/src/ld.cpp	2009-03-06 15:11:49.323880000 -0500
+@@ -15,21 +15,16 @@
+  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+  * Please see the License for the specific language governing rights and
+  * limitations under the License.
+  *
+  * @APPLE_LICENSE_HEADER_END@
+  */
+- 
+-// start temp HACK for cross builds
+-extern "C" double log2 ( double );
+-#define __MATH__
+-// end temp HACK for cross builds
+ 
+ 
+ #include <stdlib.h>
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <sys/mman.h>
+ #include <sys/sysctl.h>
+ #include <fcntl.h>
+@@ -46,19 +41,17 @@
+ #include <map>
+ #include <set>
+ #include <string>
+ #include <vector>
+ #include <list>
+ #include <algorithm>
+ #include <ext/hash_map>
+ #include <dlfcn.h>
+-#include <AvailabilityMacros.h>
+ 
+-#include "configure.h"
+ #include "Options.h"
+ 
+ #include "ObjectFile.h"
+ 
+ #include "MachOReaderRelocatable.hpp"
+ #include "ArchiveReader.hpp"
+ #include "MachOReaderDylib.hpp"
+ #include "MachOWriterExecutable.hpp"
+@@ -265,20 +258,24 @@
+ 	void				writeOutput();
+ 	ObjectFile::Atom*	entryPoint(bool orInit);
+ 	ObjectFile::Atom*	dyldHelper();
+ 	ObjectFile::Atom*	dyldLazyLibraryHelper();
+ 	const char*			assureFullPath(const char* path);
+ 	void				markLive(ObjectFile::Atom& atom, Linker::WhyLiveBackChain* previous);
+ 	void				collectStabs(ObjectFile::Reader* reader, std::map<const class ObjectFile::Atom*, uint32_t>& atomOrdinals);
+ 	void				synthesizeDebugNotes(std::vector<class ObjectFile::Atom*>& allAtomsByReader);
++#ifdef GENUINE_MACH
+ 	void				printStatistics();
+ 	void				printTime(const char* msg, uint64_t partTime, uint64_t totalTime);
++#endif /* GENUINE_MACH */
+ 	char*				commatize(uint64_t in, char* out);
++#ifdef GENUINE_MACH
+ 	void				getVMInfo(vm_statistics_data_t& info);
++#endif /* GENUINE_MACH */
+ 	cpu_type_t			inferArchitecture();
+ 	void 				addDtraceProbe(ObjectFile::Atom& atom, uint32_t offsetInAtom, const char* probeName);
+ 	void				checkDylibClientRestrictions(ObjectFile::Reader* reader);
+ 	void				logDylib(ObjectFile::Reader* reader, bool indirect);
+ 	
+ 	void									resolve(ObjectFile::Reference* reference);
+ 	void									resolveFrom(ObjectFile::Reference* reference);
+ 	std::vector<class ObjectFile::Atom*>*	addJustInTimeAtoms(const char* name, bool dylibsOnly=false);
+@@ -375,25 +372,27 @@
+ 	cpu_type_t											fArchitecture;
+ 	const char*											fArchitectureName;
+ 	bool												fArchitectureInferred;
+ 	bool												fDirectLibrariesComplete;
+ 	bool												fBiggerThanTwoGigOutput;
+ 	uint64_t											fOutputFileSize;
+ 	uint64_t											fTotalZeroFillSize;
+ 	uint64_t											fTotalSize;
++#ifdef GENUINE_MACH
+ 	uint64_t											fStartTime;
+ 	uint64_t											fStartCreateReadersTime;
+ 	uint64_t											fStartCreateWriterTime;
+ 	uint64_t											fStartBuildAtomsTime;
+ 	uint64_t											fStartLoadAndResolveTime;
+ 	uint64_t											fStartSortTime;
+ 	uint64_t											fStartDebugTime;
+ 	uint64_t											fStartWriteTime;
+ 	uint64_t											fEndTime;
++#endif /* GENUINE_MACH */
+ 	uint64_t											fTotalObjectSize;
+ 	uint64_t											fTotalArchiveSize;
+ 	uint32_t											fTotalObjectLoaded;
+ 	uint32_t											fTotalArchivesLoaded;
+ 	uint32_t											fTotalDylibsLoaded;
+ 	vm_statistics_data_t								fStartVMInfo;
+ 	ObjectFile::Reader::ObjcConstraint					fCurrentObjCConstraint;
+ 	ObjectFile::Reader::CpuConstraint					fCurrentCpuConstraint;
+@@ -406,19 +405,21 @@
+ 	: fOptions(argc, argv), fGlobalSymbolTable(*this), fNextInputOrdinal(1), fOutputFile(NULL), fBundleLoaderReader(NULL), 
+ 	  fCreateUUID(fOptions.outputKind() != Options::kObjectFile), fCanScatter(true),
+ 	  fArchitecture(0), fArchitectureInferred(false), fDirectLibrariesComplete(false), fBiggerThanTwoGigOutput(false),
+ 	  fOutputFileSize(0), fTotalZeroFillSize(0), fTotalSize(0), fTotalObjectSize(0),
+ 	  fTotalArchiveSize(0),  fTotalObjectLoaded(0), fTotalArchivesLoaded(0), fTotalDylibsLoaded(0),
+ 	  fCurrentObjCConstraint(ObjectFile::Reader::kObjcNone), fCurrentCpuConstraint(ObjectFile::Reader::kCpuAny),
+ 	  fObjcReplacmentClasses(false), fAllDirectDylibsLoaded(false)
+ {
++#ifdef GENUINE_MACH
+ 	fStartTime = mach_absolute_time();
+ 	if ( fOptions.printStatistics() )
+ 		getVMInfo(fStartVMInfo);
++#endif /* GENUINE_MACH */
+ 
+ 	fArchitecture = fOptions.architecture();
+ 	if ( fArchitecture == 0 ) {
+ 		// -arch not specified, scan .o files to figure out what it should be
+ 		fArchitecture = inferArchitecture();
+ 		fArchitectureInferred = true;
+ 	}
+ 	switch (fArchitecture) {
+@@ -533,17 +534,19 @@
+ 	}
+ 
+ private:
+ 	std::set<ObjectFile::Atom*>& fDeadAtoms;
+ };
+ 
+ void Linker::loadAndResolve()
+ {
++#ifdef GENUINE_MACH
+ 	fStartLoadAndResolveTime = mach_absolute_time();
++#endif /* GENUINE_MACH */
+ 	if ( fOptions.deadStrip() == Options::kDeadStripOff ) {
+ 		// without dead-code-stripping:
+ 		// find atoms to resolve all undefines
+ 		this->loadUndefines();
+ 		// verify nothing is missing
+ 		this->checkUndefines();
+ 		// once all undefines fulfill, then bind all references
+ 		this->resolveReferences();
+@@ -614,22 +617,25 @@
+ 	this->checkObjC();
+ 	this->processDTrace();
+ 	this->tweakLayout();
+ 	this->sortSections();
+ 	this->sortAtoms();
+ 	this->writeDotOutput();
+ 	this->collectDebugInfo();
+ 	this->writeOutput();
++#ifdef GENUINE_MACH
+ 	this->printStatistics();
++#endif /* GENUINE_MACH */
+ 
+ 	if ( fOptions.pauseAtEnd() )
+ 		sleep(10);
+ }
+ 
++#ifdef GENUINE_MACH
+ void Linker::printTime(const char* msg, uint64_t partTime, uint64_t totalTime)
+ {
+ 	static uint64_t sUnitsPerSecond = 0;
+ 	if ( sUnitsPerSecond == 0 ) {
+ 		struct mach_timebase_info timeBaseInfo;
+ 		if ( mach_timebase_info(&timeBaseInfo) == KERN_SUCCESS ) {
+ 			sUnitsPerSecond = 1000000000ULL * timeBaseInfo.denom / timeBaseInfo.numer;
+ 			//fprintf(stderr, "sUnitsPerSecond=%llu\n", sUnitsPerSecond);
+@@ -645,16 +651,17 @@
+ 	else {
+ 		uint32_t secondsTimeTen = (partTime*10)/sUnitsPerSecond;
+ 		uint32_t seconds = secondsTimeTen/10;
+ 		uint32_t percentTimesTen = (partTime*1000)/totalTime;
+ 		uint32_t percent = percentTimesTen/10;
+ 		fprintf(stderr, "%s: %u.%u seconds (%u.%u%%)\n", msg, seconds, secondsTimeTen-seconds*10, percent, percentTimesTen-percent*10);
+ 	}
+ }
++#endif /* GENUINE_MACH */
+ 
+ char* Linker::commatize(uint64_t in, char* out)
+ {
+ 	char* result = out;
+ 	char rawNum[30];
+ 	sprintf(rawNum, "%llu", in);
+ 	const int rawNumLen = strlen(rawNum);
+ 	for(int i=0; i < rawNumLen-1; ++i) {
+@@ -662,16 +669,17 @@
+ 		if ( ((rawNumLen-i) % 3) == 1 )
+ 			*out++ = ',';
+ 	}
+ 	*out++ = rawNum[rawNumLen-1];
+ 	*out = '\0';
+ 	return result;
+ }
+ 
++#ifdef GENUINE_MACH
+ void Linker::getVMInfo(vm_statistics_data_t& info)
+ {
+ 	mach_msg_type_number_t count = sizeof(vm_statistics_data_t) / sizeof(natural_t);
+ 	kern_return_t error = host_statistics(mach_host_self(), HOST_VM_INFO,
+ 							(host_info_t)&info, &count);
+ 	if (error != KERN_SUCCESS) {
+ 		bzero(&info, sizeof(vm_statistics_data_t));
+ 	}
+@@ -698,16 +706,17 @@
+ 										endVMInfo.pageouts-fStartVMInfo.pageouts, endVMInfo.faults-fStartVMInfo.faults);
+ 		char temp[40];
+ 		fprintf(stderr, "processed %3u object files,  totaling %15s bytes\n", fTotalObjectLoaded, commatize(fTotalObjectSize, temp));
+ 		fprintf(stderr, "processed %3u archive files, totaling %15s bytes\n", fTotalArchivesLoaded, commatize(fTotalArchiveSize, temp));
+ 		fprintf(stderr, "processed %3u dylib files\n", fTotalDylibsLoaded);
+ 		fprintf(stderr, "wrote output file            totaling %15s bytes\n", commatize(fOutputFileSize, temp));
+ 	}
+ }
++#endif /* GENUINE_MACH */
+ 
+ inline void Linker::addAtom(ObjectFile::Atom& atom)
+ {
+ 	// add to list of all atoms
+ 	fAllAtoms.push_back(&atom);
+ 
+ 	if ( fOptions.deadStrip() == Options::kDeadStripOff ) {
+ 		// not dead-stripping code, so add atom's references's names to symbol table as to-be-resolved-later
+@@ -866,17 +875,19 @@
+ 			fullPath = realName;
+ 		logTraceInfo("[Logging for XBS] Used static archive: %s\n", fullPath);
+ 	}
+ }
+ 
+ 
+ void Linker::buildAtomList()
+ {
++#ifdef GENUINE_MACH
+ 	fStartBuildAtomsTime = mach_absolute_time();
++#endif /* GENUINE_MACH */
+ 	// add initial undefines from -u option
+ 	std::vector<const char*>& initialUndefines = fOptions.initialUndefines();
+ 	for (std::vector<const char*>::iterator it=initialUndefines.begin(); it != initialUndefines.end(); it++) {
+ 		fGlobalSymbolTable.require(*it);
+ 	}
+ 
+ 	// writer can contribute atoms
+ 	this->addAtoms(fOutputFile->getAtoms());
+@@ -1537,16 +1548,17 @@
+ typedef uint8_t* (*oldcreatedof_func_t) (const char*, cpu_type_t, unsigned int, const char*[], const char*[], uint64_t offsetsInDOF[], size_t* size);
+ typedef uint8_t* (*createdof_func_t)(cpu_type_t, unsigned int, const char*[], unsigned int, const char*[], const char*[], uint64_t offsetsInDOF[], size_t* size);
+ 
+ 
+ void Linker::processDTrace()
+ {
+ 	// handle dtrace 2.0 static probes
+ 	if ( (fOptions.outputKind() != Options::kObjectFile) && ((fDtraceProbeSites.size() != 0) || (fDtraceIsEnabledSites.size() != 0)) ) {
++#ifdef DARWIN_RUNTIME
+ 		// partition probes by provider name
+ 		// The symbol names looks like:
+ 		//	"___dtrace_isenabled$" provider-name "$" probe-name [ "$"... ]
+ 		//	"___dtrace_probe$" provider-name "$" probe-name [ "$"... ]
+ 		ProviderToProbes providerToProbes;
+ 		std::vector<DTraceProbeInfo> emptyList;
+ 		for(std::vector<DTraceProbeInfo>::iterator it = fDtraceProbeSites.begin(); it != fDtraceProbeSites.end(); ++it) {
+ 			// ignore probes in functions that were coalesed away rdar://problem/5628149
+@@ -1668,19 +1680,23 @@
+ 					reader->addSectionReference(pcRelKind(fArchitecture), offset, probes[i].atom, probes[i].offset, reader->getAtoms()[0], 0);
+ 				}
+ 				this->addAtoms(reader->getAtoms());
+ 			}
+ 			else {
+ 				throw "error creating dtrace DOF section";
+ 			}
+ 		}
++#else /* DARWIN_RUNTIME */
++		throw "can't use /usr/lib/libdtrace.dylib on this system";
++#endif /* DARWIN_RUNTIME */
+ 	}
+ 	// create a __DATA __dof section iff -dtrace option was used and static probes were found in .o files
+ 	else if ( fOptions.dTrace() && (fDtraceProbes.size() != 0) ) {
++#ifdef DARWIN_RUNTIME
+ 		const uint32_t probeCount = fDtraceProbes.size();
+ 		const char* labels[probeCount];
+ 		const char* funtionNames[probeCount];
+ 		uint64_t offsetsInDOF[probeCount];
+ 
+ 		// open libray and find dtrace_ld64_create_dof()
+ 		void* handle = dlopen("/usr/lib/libdtrace.dylib", RTLD_LAZY);
+ 		if ( handle == NULL )
+@@ -1710,16 +1726,19 @@
+ 					throwf("offsetsInDOF[i]=%0llX > dofSectionSize=%0lX", i, offset, dofSectionSize);
+ 				reader->addSectionReference(pointerKind(fArchitecture), offset, fDtraceProbes[i].atom, fDtraceProbes[i].offset);
+ 			}
+ 			this->addAtoms(reader->getAtoms());
+ 		}
+ 		else {
+ 			throw "error created dtrace DOF section";
+ 		}
++#else /* DARWIN_RUNTIME */
++		throw "can't use /usr/lib/libdtrace.dylib on this system";
++#endif /* DARWIN_RUNTIME */
+ 	}
+ }
+ 
+ 
+ static bool matchesObjectFile(ObjectFile::Atom* atom, const char* objectFileLeafName)
+ {
+ 	if ( objectFileLeafName == NULL )
+ 		return true;
+@@ -1900,17 +1919,19 @@
+ // algorithm to do this models clusters using two maps.  The "starts" maps maps any
+ // atom in a cluster to the first Atom in the cluster.  The "nexts" maps an Atom in a
+ // cluster to the next Atom in the cluster.  With this in place, while processing an
+ // order_file, if any entry is in a cluster (in "starts" map), then the entire cluster is
+ // given ordinal overrides.
+ //
+ void Linker::sortAtoms()
+ {
++#ifdef GENUINE_MACH
+ 	fStartSortTime = mach_absolute_time();
++#endif /* GENUINE_MACH */
+ 	// if -order_file is used, build map of atom ordinal overrides
+ 	std::map<const ObjectFile::Atom*, uint32_t>* ordinalOverrideMap = NULL;
+ 	std::map<const ObjectFile::Atom*, uint32_t> theOrdinalOverrideMap;
+ 	const bool log = false;
+ 	if ( fOptions.orderedSymbols().size() != 0 ) {
+ 		// first make a pass to find all follow-on references and build start/next maps
+ 		// which are a way to represent clusters of atoms that must layout together
+ 		std::map<const ObjectFile::Atom*, const ObjectFile::Atom*> followOnStarts;
+@@ -2737,17 +2758,19 @@
+ }
+ 
+ 
+ 
+ 
+ void Linker::collectDebugInfo()
+ {
+ 	std::map<const class ObjectFile::Atom*, uint32_t>	atomOrdinals;
++#ifdef GENUINE_MACH
+ 	fStartDebugTime = mach_absolute_time();
++#endif /* GENUINE_MACH */
+ 	if ( fOptions.readerOptions().fDebugInfoStripping != ObjectFile::ReaderOptions::kDebugInfoNone ) {
+ 
+ 		// determine mixture of stabs and dwarf
+ 		bool someStabs = false;
+ 		bool someDwarf = false;
+ 		for (std::vector<class ObjectFile::Reader*>::iterator it=fReadersThatHaveSuppliedAtoms.begin();
+ 				it != fReadersThatHaveSuppliedAtoms.end();
+ 				it++) {
+@@ -2839,17 +2862,19 @@
+ 	}
+ }
+ 
+ void Linker::writeOutput()
+ {
+ 	if ( fOptions.forceCpuSubtypeAll() )
+ 		fCurrentCpuConstraint = ObjectFile::Reader::kCpuAny;
+ 
++#ifdef GENUINE_MACH
+ 	fStartWriteTime = mach_absolute_time();
++#endif /* GENUINE_MACH */
+ 	// tell writer about each segment's atoms
+ 	fOutputFileSize = fOutputFile->write(fAllAtoms, fStabs, this->entryPoint(true), 
+ 											this->dyldHelper(), this->dyldLazyLibraryHelper(),
+ 											fCreateUUID, fCanScatter, 
+ 											fCurrentCpuConstraint, fBiggerThanTwoGigOutput, 
+ 											fGlobalSymbolTable.hasExternalWeakDefinitions());
+ }
+ 
+@@ -3087,17 +3112,19 @@
+ 	}
+ 	
+ }
+ 
+ 	
+ 
+ void Linker::createReaders()
+ {
++#ifdef GENUINE_MACH
+ 	fStartCreateReadersTime = mach_absolute_time();
++#endif /* GENUINE_MACH */
+ 	std::vector<Options::FileInfo>& files = fOptions.getInputFiles();
+ 	const int count = files.size();
+ 	if ( count == 0 )
+ 		throw "no object files specified";
+ 	// add all direct object, archives, and dylibs
+ 	for (int i=0; i < count; ++i) {
+ 		Options::FileInfo& entry = files[i];
+ 		// ignore /usr/lib/dyld on command line in crt.o build
+@@ -3302,17 +3329,19 @@
+ 		length -= amount_written;
+ 	}
+ }
+ 
+ 
+ 
+ void Linker::createWriter()
+ {
++#ifdef GENUINE_MACH
+ 	fStartCreateWriterTime = mach_absolute_time();
++#endif /* GENUINE_MACH */
+ 
+ 	// make a vector out of all required dylibs in fDylibMap
+ 	std::vector<ExecutableFile::DyLibUsed>	dynamicLibraries;
+ 	// need to preserve command line order 
+ 	for (std::vector<class ObjectFile::Reader*>::iterator it=fInputFiles.begin(); it != fInputFiles.end(); it++) {
+ 		ObjectFile::Reader* reader = *it;
+ 		for (InstallNameToReader::iterator mit=fDylibMap.begin(); mit != fDylibMap.end(); mit++) {
+ 			if ( reader == mit->second ) {
+diff -U8 -r -N ld64-85.2.1.orig/src/ld_version.c ld64-85.2.1/src/ld_version.c
+--- ld64-85.2.1.orig/src/ld_version.c	1969-12-31 19:00:00.000000000 -0500
++++ ld64-85.2.1/src/ld_version.c	2009-03-06 14:37:35.735880000 -0500
+@@ -0,0 +1 @@
++const char ldVersionString[]= "@(#)PROGRAM:ld  PROJECT:ld64-85.2.1\n";
+diff -U8 -r -N ld64-85.2.1.orig/src/pack-uuid.c ld64-85.2.1/src/pack-uuid.c
+--- ld64-85.2.1.orig/src/pack-uuid.c	1969-12-31 19:00:00.000000000 -0500
++++ ld64-85.2.1/src/pack-uuid.c	2009-03-06 14:37:01.929630000 -0500
+@@ -0,0 +1,70 @@
++/* Libc-498.1.1/uuid/pack-uuid.c */
++/*
++ * Internal routine for packing UUID's
++ * 
++ * Copyright (C) 1996, 1997 Theodore Ts'o.
++ *
++ * %Begin-Header%
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, and the entire permission notice in its entirety,
++ *    including the disclaimer of warranties.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. The name of the author may not be used to endorse or promote
++ *    products derived from this software without specific prior
++ *    written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
++ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, ALL OF
++ * WHICH ARE HEREBY DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
++ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
++ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
++ * USE OF THIS SOFTWARE, EVEN IF NOT ADVISED OF THE POSSIBILITY OF SUCH
++ * DAMAGE.
++ * %End-Header%
++ */
++
++#include <string.h>
++#include "uuidP.h"
++
++void uuid_pack(const struct uuid *uu, uuid_t ptr)
++{
++	u_int32_t	tmp;
++	unsigned char	*out = ptr;
++
++	tmp = uu->time_low;
++	out[3] = (unsigned char) tmp;
++	tmp >>= 8;
++	out[2] = (unsigned char) tmp;
++	tmp >>= 8;
++	out[1] = (unsigned char) tmp;
++	tmp >>= 8;
++	out[0] = (unsigned char) tmp;
++	
++	tmp = uu->time_mid;
++	out[5] = (unsigned char) tmp;
++	tmp >>= 8;
++	out[4] = (unsigned char) tmp;
++
++	tmp = uu->time_hi_and_version;
++	out[7] = (unsigned char) tmp;
++	tmp >>= 8;
++	out[6] = (unsigned char) tmp;
++
++	tmp = uu->clock_seq;
++	out[9] = (unsigned char) tmp;
++	tmp >>= 8;
++	out[8] = (unsigned char) tmp;
++
++	memcpy(out+10, uu->node, 6);
++}
++
+diff -U8 -r -N ld64-85.2.1.orig/src/rebase.cpp ld64-85.2.1/src/rebase.cpp
+--- ld64-85.2.1.orig/src/rebase.cpp	2008-03-21 15:15:50.000000000 -0400
++++ ld64-85.2.1/src/rebase.cpp	2009-03-06 15:01:37.022564000 -0500
+@@ -620,48 +620,52 @@
+ 	}
+ 	throw "no writable segment";
+ }
+ 
+ 
+ static void copyFile(const char* srcFile, const char* dstFile)
+ {
+ 	// open files 
++#ifdef O_DIRECT
++	int src = open(srcFile, O_RDONLY | O_DIRECT);	
++#else
+ 	int src = open(srcFile, O_RDONLY);	
++#endif
+ 	if ( src == -1 )
+ 		throwf("can't open file %s, errno=%d", srcFile, errno);
+ 	struct stat stat_buf;
+ 	if ( fstat(src, &stat_buf) == -1)
+ 		throwf("can't stat open file %s, errno=%d", srcFile, errno);
+ 		
+ 	// create new file with all same permissions to hold copy of dylib 
+ 	::unlink(dstFile);
+ 	int dst = open(dstFile, O_CREAT | O_RDWR | O_TRUNC, stat_buf.st_mode);	
+ 	if ( dst == -1 )
+ 		throwf("can't create temp file %s, errnor=%d", dstFile, errno);
+ 
+ 	// mark source as "don't cache"
++#ifdef F_NOCACHE
+ 	(void)fcntl(src, F_NOCACHE, 1);
++#endif
+ 	// we want to cache the dst because we are about to map it in and modify it
+ 	
+ 	// copy permission bits
+ 	if ( chmod(dstFile, stat_buf.st_mode & 07777) == -1 )
+ 		throwf("can't chmod temp file %s, errno=%d", dstFile, errno);
+ 	if ( chown(dstFile, stat_buf.st_uid, stat_buf.st_gid) == -1)
+ 		throwf("can't chown temp file %s, errno=%d", dstFile, errno);
+ 		  
+ 	// copy contents
+ 	ssize_t len;
+ 	const uint32_t kBufferSize = 128*1024;
+ 	static uint8_t* buffer = NULL;
+ 	if ( buffer == NULL ) {
+-		vm_address_t addr = 0;
+-		if ( vm_allocate(mach_task_self(), &addr, kBufferSize, true /*find range*/) == KERN_SUCCESS )
+-			buffer = (uint8_t*)addr;
+-		else
++		buffer = (uint8_t*)malloc(kBufferSize);
++		if (!buffer)
+ 			throw "can't allcoate copy buffer";
+ 	}
+ 	while ( (len = read(src, buffer, kBufferSize)) > 0 ) {
+ 		if ( write(dst, buffer, len) == -1 )
+ 			throwf("write failure copying feil %s, errno=%d", dstFile, errno);
+ 	}
+ 		
+ 	// close files 
+diff -U8 -r -N ld64-85.2.1.orig/src/strl.h ld64-85.2.1/src/strl.h
+--- ld64-85.2.1.orig/src/strl.h	1969-12-31 19:00:00.000000000 -0500
++++ ld64-85.2.1/src/strl.h	2009-03-06 13:08:06.986558000 -0500
+@@ -0,0 +1,16 @@
++#ifndef _STRL_H
++#define _STRL_H
++
++#include <sys/types.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++size_t strlcpy(char*, const char*, size_t);
++
++#ifdef __cplusplus
++} /* extern "C" */
++#endif
++
++#endif /* _STRL_H */
+diff -U8 -r -N ld64-85.2.1.orig/src/strlcpy-fbsd.c ld64-85.2.1/src/strlcpy-fbsd.c
+--- ld64-85.2.1.orig/src/strlcpy-fbsd.c	1969-12-31 19:00:00.000000000 -0500
++++ ld64-85.2.1/src/strlcpy-fbsd.c	2009-03-06 13:10:22.617556000 -0500
+@@ -0,0 +1,70 @@
++/* Libc-498.1.1/string/strlcpy-fbsd.c */
++/*	$OpenBSD: strlcpy.c,v 1.4 1999/05/01 18:56:41 millert Exp $	*/
++
++/*
++ * Copyright (c) 1998 Todd C. Miller <Todd.Miller@courtesan.com>
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. The name of the author may not be used to endorse or promote products
++ *    derived from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
++ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
++ * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL
++ * THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#if defined(LIBC_SCCS) && !defined(lint)
++static char *rcsid = "$OpenBSD: strlcpy.c,v 1.4 1999/05/01 18:56:41 millert Exp $";
++#endif /* LIBC_SCCS and not lint */
++#include <sys/cdefs.h>
++
++#include <sys/types.h>
++#include <string.h>
++
++/*
++ * Copy src to string dst of size siz.  At most siz-1 characters
++ * will be copied.  Always NUL terminates (unless siz == 0).
++ * Returns strlen(src); if retval >= siz, truncation occurred.
++ */
++size_t strlcpy(dst, src, siz)
++	char *dst;
++	const char *src;
++	size_t siz;
++{
++	char *d = dst;
++	const char *s = src;
++	size_t n = siz;
++
++	/* Copy as many bytes as will fit */
++	if (n != 0 && --n != 0) {
++		do {
++			if ((*d++ = *s++) == 0)
++				break;
++		} while (--n != 0);
++	}
++
++	/* Not enough room in dst, add NUL and traverse rest of src */
++	if (n == 0) {
++		if (siz != 0)
++			*d = '\0';		/* NUL-terminate dst */
++		while (*s++)
++			;
++	}
++
++	return(s - src - 1);	/* count does not include NUL */
++}
+diff -U8 -r -N ld64-85.2.1.orig/src/unpack-uuid.c ld64-85.2.1/src/unpack-uuid.c
+--- ld64-85.2.1.orig/src/unpack-uuid.c	1969-12-31 19:00:00.000000000 -0500
++++ ld64-85.2.1/src/unpack-uuid.c	2009-03-06 14:37:20.352013000 -0500
+@@ -0,0 +1,64 @@
++/* Libc-498.1.1/uuid/unpack-uuid.c */
++/*
++ * Internal routine for unpacking UUID
++ * 
++ * Copyright (C) 1996, 1997 Theodore Ts'o.
++ *
++ * %Begin-Header%
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, and the entire permission notice in its entirety,
++ *    including the disclaimer of warranties.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. The name of the author may not be used to endorse or promote
++ *    products derived from this software without specific prior
++ *    written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
++ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, ALL OF
++ * WHICH ARE HEREBY DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
++ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
++ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
++ * USE OF THIS SOFTWARE, EVEN IF NOT ADVISED OF THE POSSIBILITY OF SUCH
++ * DAMAGE.
++ * %End-Header%
++ */
++
++#include <string.h>
++#include "uuidP.h"
++
++void uuid_unpack(const uuid_t in, struct uuid *uu)
++{
++	const u_int8_t	*ptr = in;
++	u_int32_t		tmp;
++
++	tmp = *ptr++;
++	tmp = (tmp << 8) | *ptr++;
++	tmp = (tmp << 8) | *ptr++;
++	tmp = (tmp << 8) | *ptr++;
++	uu->time_low = tmp;
++
++	tmp = *ptr++;
++	tmp = (tmp << 8) | *ptr++;
++	uu->time_mid = tmp;
++	
++	tmp = *ptr++;
++	tmp = (tmp << 8) | *ptr++;
++	uu->time_hi_and_version = tmp;
++
++	tmp = *ptr++;
++	tmp = (tmp << 8) | *ptr++;
++	uu->clock_seq = tmp;
++
++	memcpy(uu->node, ptr, 6);
++}
++
+diff -U8 -r -N ld64-85.2.1.orig/src/uuid.h ld64-85.2.1/src/uuid.h
+--- ld64-85.2.1.orig/src/uuid.h	1969-12-31 19:00:00.000000000 -0500
++++ ld64-85.2.1/src/uuid.h	2009-03-06 14:29:00.617442000 -0500
+@@ -0,0 +1,17 @@
++#ifndef _UUID_H
++#define _UUID_H
++
++typedef unsigned char uuid_t[16];
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++void uuid_generate_random(uuid_t);
++void uuid_generate(uuid_t);
++
++#ifdef __cplusplus
++} /* extern "C" */
++#endif
++
++#endif /* _UUID_H */
+diff -U8 -r -N ld64-85.2.1.orig/src/uuidP.h ld64-85.2.1/src/uuidP.h
+--- ld64-85.2.1.orig/src/uuidP.h	1969-12-31 19:00:00.000000000 -0500
++++ ld64-85.2.1/src/uuidP.h	2009-03-06 14:35:46.660131000 -0500
+@@ -0,0 +1,26 @@
++#ifndef _UUIDP_H
++#define _UUIDP_H
++
++#include <sys/types.h>
++#include "uuid.h"
++
++struct uuid {
++  u_int32_t time_low;
++  u_int16_t time_mid;
++  u_int16_t time_hi_and_version;
++  u_int16_t clock_seq;
++  u_int8_t node[6];
++};
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++void uuid_pack(const struct uuid*, uuid_t);
++void uuid_unpack(const uuid_t, struct uuid*);
++
++#ifdef __cplusplus
++} /* extern "C" */
++#endif
++
++#endif /* _UUIDP_H */
