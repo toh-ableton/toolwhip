@@ -1,0 +1,165 @@
+Only in gcc_42-5566: .driverdriver.c.swp
+diff -U8 -r gcc_42-5566.orig/driverdriver.c gcc_42-5566/driverdriver.c
+--- gcc_42-5566.orig/driverdriver.c	2008-09-23 02:11:23.000000000 -0400
++++ gcc_42-5566/driverdriver.c	2009-03-18 12:37:14.886983000 -0400
+@@ -185,16 +185,17 @@
+ static int get_prog_name_len (const char *prog);
+ 
+ /* Find arch name for the given input string. If input name is NULL then local
+    arch name is used.  */
+ 
+ static const char *
+ get_arch_name (const char *name)
+ {
++#if 0
+   const NXArchInfo * a_info;
+   const NXArchInfo * all_info;
+   cpu_type_t cputype;
+   struct arch_config_guess_map *map;
+   const char *aname;
+ 
+   if (name)
+     {
+@@ -227,16 +228,56 @@
+     {
+       if (all_info->cputype == cputype)
+ 	break;
+       else
+ 	all_info++;
+     }
+ 
+   return all_info->name;
++#else
++  /* Architectures from Mac "man 3 arch" that we're willing to handle. */
++  const char* known_archs[] = {
++    "i386",  /* The first item is the default to use when none is specified. */
++    "x86_64",
++    "ppc",
++    "ppc64",
++    "i486",
++    "i486SX",
++    "pentium",
++    "i586",
++    "pentpro",
++    "i686",
++    "pentIIm3",
++    "pentIIm5",
++    "pentium4",
++    "ppc601",
++    "ppc603",
++    "ppc604",
++    "ppc604e",
++    "ppc750",
++    "ppc7400",
++    "ppc7450",
++    "ppc970",
++    NULL
++  };
++  const char** known_arch;
++
++  if (name) {
++    for (known_arch = known_archs; *known_arch; ++known_arch) {
++      if (!strcmp(name, *known_arch)) {
++        return name;
++      }
++    }
++
++    fatal ("Invalid arch name : %s", name);
++  }
++
++  return known_archs[0];
++#endif
+ }
+ 
+ /* Find driver name based on input arch name.  */
+ 
+ static char *
+ get_driver_name (const char *arch_name)
+ {
+   char *driver_name;
+Only in gcc_42-5566/gcc: .nfs0000000001311c8500000022
+diff -U8 -r gcc_42-5566.orig/gcc/config/darwin-driver.c gcc_42-5566/gcc/config/darwin-driver.c
+--- gcc_42-5566.orig/gcc/config/darwin-driver.c	2008-03-25 18:29:23.000000000 -0400
++++ gcc_42-5566/gcc/config/darwin-driver.c	2009-03-06 23:10:23.649965000 -0500
+@@ -151,16 +151,17 @@
+       (*argv_p)[0] = argv[0];
+       (*argv_p)[1] = xstrdup ("-miphoneos-version-min=2.0");
+       memcpy (*argv_p + 2, argv + 1, (argc - 1) * sizeof (char *));
+       return;
+     }
+ 
+   gcc_assert (vers_type == DARWIN_VERSION_MACOSX);
+ 
++#if 0
+   /* Determine the version of the running OS.  If we can't, warn user,
+      and do nothing.  */
+   if (sysctl (osversion_name, ARRAY_SIZE (osversion_name), osversion,
+ 	      &osversion_len, NULL, 0) == -1)
+     {
+       fprintf (stderr, "sysctl for kern.osversion failed: %s\n",
+ 	       xstrerror (errno));
+       return;
+@@ -190,16 +191,19 @@
+      component.  */
+   if (major_vers - 4 <= 4)
+     /* On 10.4 and earlier, the old linker is used which does not
+        support three-component system versions.  */
+     sprintf (new_flag, "-mmacosx-version-min=10.%d", major_vers - 4);
+   else
+     sprintf (new_flag, "-mmacosx-version-min=10.%d.%s", major_vers - 4,
+ 	     minor_vers);
++#else
++  strncpy(new_flag, "-mmacosx-version-min=10.5", sizeof(new_flag));
++#endif
+ 
+   /* Add the new flag.  */
+   ++*argc_p;
+   *argv_p = xmalloc (sizeof (char *) * *argc_p);
+   (*argv_p)[0] = argv[0];
+   (*argv_p)[1] = new_flag;
+   memcpy (*argv_p + 2, argv + 1, (argc - 1) * sizeof (char *));
+   return;
+diff -U8 -r gcc_42-5566.orig/gcc/configure gcc_42-5566/gcc/configure
+--- gcc_42-5566.orig/gcc/configure	2007-06-22 20:16:40.000000000 -0400
++++ gcc_42-5566/gcc/configure	2009-03-06 22:39:51.841017000 -0500
+@@ -13320,17 +13320,17 @@
+   # CROSS_SYSTEM_HEADER_DIR is just
+   # $(TARGET_SYSTEM_ROOT)$(NATIVE_SYSTEM_HEADER_DIR).
+   build_system_header_dir='$(CROSS_SYSTEM_HEADER_DIR)'
+ fi
+ 
+ if test x$host != x$target
+ then
+  # APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325
+-	CROSS="-DCROSS_DIRECTORY_STRUCTURE"
++#	CROSS="-DCROSS_DIRECTORY_STRUCTURE"
+  # APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325
+ 	ALL=all.cross
+ 	SYSTEM_HEADER_DIR=$build_system_header_dir
+ 	case "$host","$target" in
+ 	# Darwin crosses can use the host system's libraries and headers,
+ 	# because of the fat library support.  Of course, it must be the
+ 	# same version of Darwin on both sides.  Allow the user to
+ 	# just say --target=foo-darwin without a version number to mean
+diff -U8 -r gcc_42-5566.orig/gcc/configure.ac gcc_42-5566/gcc/configure.ac
+--- gcc_42-5566.orig/gcc/configure.ac	2008-03-31 15:07:15.000000000 -0400
++++ gcc_42-5566/gcc/configure.ac	2009-03-06 22:40:36.770651000 -0500
+@@ -1749,17 +1749,17 @@
+   # CROSS_SYSTEM_HEADER_DIR is just 
+   # $(TARGET_SYSTEM_ROOT)$(NATIVE_SYSTEM_HEADER_DIR).
+   build_system_header_dir='$(CROSS_SYSTEM_HEADER_DIR)'
+ fi
+ 
+ if test x$host != x$target
+ then
+  # APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325
+-	CROSS="-DCROSS_DIRECTORY_STRUCTURE"
++#	CROSS="-DCROSS_DIRECTORY_STRUCTURE"
+  # APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325
+ 	ALL=all.cross
+ 	SYSTEM_HEADER_DIR=$build_system_header_dir
+ 	case "$host","$target" in
+ 	# Darwin crosses can use the host system's libraries and headers,
+ 	# because of the fat library support.  Of course, it must be the
+ 	# same version of Darwin on both sides.  Allow the user to
+ 	# just say --target=foo-darwin without a version number to mean
