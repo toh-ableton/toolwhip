@@ -13,8 +13,8 @@ distcc with pump mode into the Xcode build.
 This allows Apple-style distcc 1088 to be built for Linux, allowing Linux
 systems to serve as distcc servers for Xcode builds.
 
-Apple distcc 1088 has several changes relative to distcc 2.18.3.  Focusing on
-distccd:
+Apple distcc 1088, which calls itself 2.18.5-Apple.1, has several changes
+relative to distcc 2.18.3.  Focusing on distccd:
  - zeroconf/DNS-SD support to provide the "xcodedistcc" service
  - conveys host information such as OS, hardware, and available compilers to
    clients to allow them to choose a set of distccd servers

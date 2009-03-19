@@ -1,4 +1,4 @@
-diff -U8 -r distcc-3.1.orig/include_server/compiler_defaults.py distcc-3.1/include_server/compiler_defaults.py
+diff -U8 -r -N distcc-3.1.orig/include_server/compiler_defaults.py distcc-3.1/include_server/compiler_defaults.py
 --- distcc-3.1.orig/include_server/compiler_defaults.py	2008-12-02 16:50:31.000000000 -0500
 +++ distcc-3.1/include_server/compiler_defaults.py	2009-03-13 13:10:01.000000000 -0400
 @@ -71,17 +71,17 @@
@@ -71,7 +71,7 @@ diff -U8 -r distcc-3.1.orig/include_server/compiler_defaults.py distcc-3.1/inclu
    This function works only for gcc, and only some versions at that,
    because we parse the output from gcc to determine the default search dirs.
  
-diff -U8 -r distcc-3.1.orig/include_server/parse_command.py distcc-3.1/include_server/parse_command.py
+diff -U8 -r -N distcc-3.1.orig/include_server/parse_command.py distcc-3.1/include_server/parse_command.py
 --- distcc-3.1.orig/include_server/parse_command.py	2008-12-02 16:50:31.000000000 -0500
 +++ distcc-3.1/include_server/parse_command.py	2009-03-13 13:37:47.000000000 -0400
 @@ -50,24 +50,26 @@
@@ -130,10 +130,34 @@ diff -U8 -r distcc-3.1.orig/include_server/parse_command.py distcc-3.1/include_s
  }
  CPP_OPTIONS_MAYBE_TWO_WORDS_FIRST_LETTERS = ('M', 'i', '-')
  # A "compile-time" check to make sure the first-letter list is up-to-date
-diff -U8 -r distcc-3.1.orig/src/arg.c distcc-3.1/src/arg.c
+diff -U8 -r -N distcc-3.1.orig/src/arg.c distcc-3.1/src/arg.c
 --- distcc-3.1.orig/src/arg.c	2008-12-02 16:50:24.000000000 -0500
-+++ distcc-3.1/src/arg.c	2009-03-13 13:32:39.000000000 -0400
-@@ -206,19 +206,21 @@
++++ distcc-3.1/src/arg.c	2009-03-18 19:51:11.000000000 -0400
+@@ -139,16 +139,23 @@
+     if ((ret = dcc_copy_argv(argv, ret_newargv, 2)) != 0)
+         return ret;
+     argv = *ret_newargv;
+ 
+     /* FIXME: new copy of argv is leaked */
+ 
+     dcc_trace_argv("scanning arguments", argv);
+ 
++#ifdef XCODE_INTEGRATION
++    /* Xcode invokes "distcc --host-info HOST" to gather info about HOST. */
++    if (!strcmp(argv[0], "--host-info") && argv[1] && !argv[2]) {
++        return 0;
++    }
++#endif /* XCODE_INTEGRATION */
++
+     /* Things like "distcc -c hello.c" with an implied compiler are
+      * handled earlier on by inserting a compiler name.  At this
+      * point, argv[0] should always be a compiler name. */
+     if (argv[0][0] == '-') {
+         rs_log_error("unrecognized distcc option: %s", argv[0]);
+         exit(EXIT_BAD_ARGUMENTS);
+     }
+ 
+@@ -206,19 +213,21 @@
                  seen_opt_s = 1;
              } else if (!strcmp(a, "-fprofile-arcs")
                         || !strcmp(a, "-ftest-coverage")) {
@@ -155,3 +179,154 @@ diff -U8 -r distcc-3.1.orig/src/arg.c distcc-3.1/src/arg.c
                  seen_opt_c = 1;
              } else if (!strcmp(a, "-o")) {
                  /* Whatever follows must be the output */
+diff -U8 -r -N distcc-3.1.orig/src/compile.h distcc-3.1/src/compile.h
+--- distcc-3.1.orig/src/compile.h	2008-12-02 16:50:25.000000000 -0500
++++ distcc-3.1/src/compile.h	2009-03-18 19:51:11.000000000 -0400
+@@ -30,16 +30,20 @@
+                        char *output_fname,
+                        char *deps_fname,
+                        char *server_stderr_fname,
+                        pid_t cpp_pid,
+                        int local_cpu_lock_fd,
+                        struct dcc_hostdef *host,
+                        int *status);
+ 
++#ifdef XCODE_INTEGRATION
++int dcc_show_host_info(char *host);
++#endif
++
+ /* compile.c */
+ 
+ extern int dcc_scan_includes;
+ 
+ int dcc_build_somewhere_timed(char *argv[],
+                               int sg_level,
+                               int *status);
+ 
+diff -U8 -r -N distcc-3.1.orig/src/distcc.c distcc-3.1/src/distcc.c
+--- distcc-3.1.orig/src/distcc.c	2008-12-02 16:50:25.000000000 -0500
++++ distcc-3.1/src/distcc.c	2009-03-18 19:56:09.000000000 -0400
+@@ -240,16 +240,23 @@
+             goto out;
+         }
+ 
+         if (!strcmp(argv[1], "--scan-includes")) {
+             dcc_scan_includes = 1;
+             argv++;
+         }
+ 
++#ifdef XCODE_INTEGRATION
++        if (!strcmp(argv[1], "--host-info") && argc == 3) {
++            ret = dcc_show_host_info(argv[2]);
++            goto out;
++        }
++#endif /* XCODE_INTEGRATION */
++
+         if ((ret = dcc_find_compiler(argv, &compiler_args)) != 0) {
+             goto out;
+         }
+         /* compiler_args is now respectively either "cc -c hello.c" or
+          * "gcc -c hello.c" */
+ 
+ #if 0
+         /* I don't think we need to call this: if we reached this
+diff -U8 -r -N distcc-3.1.orig/src/remote.c distcc-3.1/src/remote.c
+--- distcc-3.1.orig/src/remote.c	2008-12-02 16:50:24.000000000 -0500
++++ distcc-3.1/src/remote.c	2009-03-18 19:57:48.000000000 -0400
+@@ -307,8 +307,96 @@
+      * when something possibly went wrong, and it allows us to account for the
+      * cost of the ssh child. */
+     if (ssh_pid) {
+         dcc_collect_child("ssh", ssh_pid, &ssh_status, timeout_null_fd); /* ignore failure */
+     }
+ 
+     return ret;
+ }
++
++
++#ifdef XCODE_INTEGRATION
++/**
++ * Print information about a host to stdout.
++ *
++ * This function connects to host, sends an HINF query, and prints the result.
++ * Xcode uses the output to determine various characteristics about the host,
++ * such as the hardware and operating system in use, the compilers available,
++ * and the number of CPUs available.  Only distccd servers built with Xcode
++ * integration support HINF.
++ *
++ * @param host The host to query.
++ *
++ * Returns 0 on success, otherwise error.  Returning nonzero does not
++ */
++int dcc_show_host_info(char *host)
++{
++    int to_net_fd = -1, from_net_fd = -1;
++    int ret;
++    pid_t ssh_pid = 0;
++    int ssh_status;
++    char *info;
++    struct dcc_hostdef *hostlist, *hostdef;
++    int n_hosts;
++    const char *argv[] = { "--host-info", NULL };
++
++    if ((ret = dcc_parse_hosts(host, "command line",
++                               &hostlist, &n_hosts, NULL))) {
++        rs_log_error("bad host argument: %s", host);
++        return ret;
++    }
++
++    hostdef = hostlist;
++    while (hostdef && strcmp(hostdef->hostname, host))
++        hostdef = hostdef->next;
++    if (!hostdef) {
++        rs_log_error("couldn't find %s in host list", host);
++        ret = EXIT_BAD_ARGUMENTS;
++        return ret;
++    }
++
++    if ((ret = dcc_remote_connect(hostdef, &to_net_fd,
++                                  &from_net_fd, &ssh_pid))) {
++        rs_log_error("couldn't connect to %s", host);
++        printf("ERROR=%d\n", errno);
++        return ret;
++    }
++
++    if ((ret = dcc_send_header(to_net_fd, (char**)argv, hostdef)) != 0) {
++        rs_log_error("failed to send request");
++        printf("ERROR=%d\n", errno);
++        goto out;
++    }
++
++    if ((ret = dcc_r_result_header(from_net_fd, hostdef->protover)))
++        goto out; /* dcc_r_result_header logs its own error on failure */
++
++    if ((ret = dcc_r_token_string(from_net_fd, "HINF", &info))) {
++        rs_log_error("failed to read result");
++        printf("ERROR=%d\n", errno);
++    }
++
++  out:
++    /* Close socket so that the server can terminate, rather than
++     * making it wait until we've finished our work. */
++    if (to_net_fd != from_net_fd) {
++        if (to_net_fd != -1)
++            dcc_close(to_net_fd);
++    }
++    if (from_net_fd != -1)
++        dcc_close(from_net_fd);
++
++    /* Collect the SSH child.  Strictly this is unnecessary; it might slow the
++     * client down a little when things could otherwise be proceeding in the
++     * background.  But it helps make sure that we don't assume we succeeded
++     * when something possibly went wrong, and it allows us to account for the
++     * cost of the ssh child. */
++    if (ssh_pid) {
++        dcc_collect_child("ssh", ssh_pid, &ssh_status, timeout_null_fd); /* ignore failure */
++    }
++
++    if (!ret)
++        printf("%s\n", info);
++
++    return ret;
++}
++#endif /* XCODE_INTEGRATION */
