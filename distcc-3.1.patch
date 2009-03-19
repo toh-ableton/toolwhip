@@ -1,6 +1,6 @@
 diff -U8 -r -N distcc-3.1.orig/include_server/compiler_defaults.py distcc-3.1/include_server/compiler_defaults.py
 --- distcc-3.1.orig/include_server/compiler_defaults.py	2008-12-02 16:50:31.000000000 -0500
-+++ distcc-3.1/include_server/compiler_defaults.py	2009-03-13 13:10:01.000000000 -0400
++++ distcc-3.1/include_server/compiler_defaults.py	2009-03-18 21:11:11.000000000 -0400
 @@ -71,17 +71,17 @@
      if os.path.islink(prefix):
        return last_prefix, True
@@ -73,7 +73,7 @@ diff -U8 -r -N distcc-3.1.orig/include_server/compiler_defaults.py distcc-3.1/in
  
 diff -U8 -r -N distcc-3.1.orig/include_server/parse_command.py distcc-3.1/include_server/parse_command.py
 --- distcc-3.1.orig/include_server/parse_command.py	2008-12-02 16:50:31.000000000 -0500
-+++ distcc-3.1/include_server/parse_command.py	2009-03-13 13:37:47.000000000 -0400
++++ distcc-3.1/include_server/parse_command.py	2009-03-18 21:11:11.000000000 -0400
 @@ -50,24 +50,26 @@
      self.before_system_dirs = []
      self.after_system_dirs = []
@@ -132,8 +132,8 @@ diff -U8 -r -N distcc-3.1.orig/include_server/parse_command.py distcc-3.1/includ
  # A "compile-time" check to make sure the first-letter list is up-to-date
 diff -U8 -r -N distcc-3.1.orig/src/arg.c distcc-3.1/src/arg.c
 --- distcc-3.1.orig/src/arg.c	2008-12-02 16:50:24.000000000 -0500
-+++ distcc-3.1/src/arg.c	2009-03-18 19:51:11.000000000 -0400
-@@ -139,16 +139,23 @@
++++ distcc-3.1/src/arg.c	2009-03-18 22:23:53.000000000 -0400
+@@ -139,16 +139,25 @@
      if ((ret = dcc_copy_argv(argv, ret_newargv, 2)) != 0)
          return ret;
      argv = *ret_newargv;
@@ -143,8 +143,10 @@ diff -U8 -r -N distcc-3.1.orig/src/arg.c distcc-3.1/src/arg.c
      dcc_trace_argv("scanning arguments", argv);
  
 +#ifdef XCODE_INTEGRATION
-+    /* Xcode invokes "distcc --host-info HOST" to gather info about HOST. */
-+    if (!strcmp(argv[0], "--host-info") && argv[1] && !argv[2]) {
++    /* Xcode invokes the distcc client as "distcc --host-info HOST" to gather
++     * info about HOST.  When the request is transmitted to the distccd server,
++     * it will see only "--host-info" and no other arguments in argv. */
++    if (!strcmp(argv[0], "--host-info")) {
 +        return 0;
 +    }
 +#endif /* XCODE_INTEGRATION */
@@ -157,7 +159,7 @@ diff -U8 -r -N distcc-3.1.orig/src/arg.c distcc-3.1/src/arg.c
          exit(EXIT_BAD_ARGUMENTS);
      }
  
-@@ -206,19 +213,21 @@
+@@ -206,19 +215,21 @@
                  seen_opt_s = 1;
              } else if (!strcmp(a, "-fprofile-arcs")
                         || !strcmp(a, "-ftest-coverage")) {
@@ -181,7 +183,7 @@ diff -U8 -r -N distcc-3.1.orig/src/arg.c distcc-3.1/src/arg.c
                  /* Whatever follows must be the output */
 diff -U8 -r -N distcc-3.1.orig/src/compile.h distcc-3.1/src/compile.h
 --- distcc-3.1.orig/src/compile.h	2008-12-02 16:50:25.000000000 -0500
-+++ distcc-3.1/src/compile.h	2009-03-18 19:51:11.000000000 -0400
++++ distcc-3.1/src/compile.h	2009-03-18 21:11:11.000000000 -0400
 @@ -30,16 +30,20 @@
                         char *output_fname,
                         char *deps_fname,
@@ -203,9 +205,32 @@ diff -U8 -r -N distcc-3.1.orig/src/compile.h distcc-3.1/src/compile.h
                                int sg_level,
                                int *status);
  
+diff -U8 -r -N distcc-3.1.orig/src/daemon.h distcc-3.1/src/daemon.h
+--- distcc-3.1.orig/src/daemon.h	2008-12-02 16:50:25.000000000 -0500
++++ distcc-3.1/src/daemon.h	2009-03-18 21:49:56.000000000 -0400
+@@ -39,16 +39,19 @@
+ 
+ /* prefork.c */
+ int dcc_preforking_parent(int listen_fd);
+ 
+ 
+ /* serve.c */
+ struct sockaddr;
+ int dcc_service_job(int in_fd, int out_fd, struct sockaddr *, int);
++#ifdef XCODE_INTEGRATION
++int dcc_send_host_info(int out_fd);
++#endif
+ 
+ /* setuid.c */
+ int dcc_discard_root(void);
+ extern const char *opt_user;
+ 
+ 
+ extern int dcc_max_kids;
+ extern int dcc_nkids;
 diff -U8 -r -N distcc-3.1.orig/src/distcc.c distcc-3.1/src/distcc.c
 --- distcc-3.1.orig/src/distcc.c	2008-12-02 16:50:25.000000000 -0500
-+++ distcc-3.1/src/distcc.c	2009-03-18 19:56:09.000000000 -0400
++++ distcc-3.1/src/distcc.c	2009-03-18 21:11:11.000000000 -0400
 @@ -240,16 +240,23 @@
              goto out;
          }
@@ -232,7 +257,7 @@ diff -U8 -r -N distcc-3.1.orig/src/distcc.c distcc-3.1/src/distcc.c
          /* I don't think we need to call this: if we reached this
 diff -U8 -r -N distcc-3.1.orig/src/remote.c distcc-3.1/src/remote.c
 --- distcc-3.1.orig/src/remote.c	2008-12-02 16:50:24.000000000 -0500
-+++ distcc-3.1/src/remote.c	2009-03-18 20:21:16.000000000 -0400
++++ distcc-3.1/src/remote.c	2009-03-18 21:11:11.000000000 -0400
 @@ -307,8 +307,92 @@
       * when something possibly went wrong, and it allows us to account for the
       * cost of the ssh child. */
@@ -322,6 +347,68 @@ diff -U8 -r -N distcc-3.1.orig/src/remote.c distcc-3.1/src/remote.c
 +
 +    if (!ret)
 +        printf("%s\n", info);
++
++    return ret;
++}
++#endif /* XCODE_INTEGRATION */
+diff -U8 -r -N distcc-3.1.orig/src/serve.c distcc-3.1/src/serve.c
+--- distcc-3.1.orig/src/serve.c	2008-12-02 16:50:25.000000000 -0500
++++ distcc-3.1/src/serve.c	2009-03-18 22:25:32.000000000 -0400
+@@ -591,16 +591,27 @@
+                           &temp_dir, &client_cwd, &server_cwd)))
+             goto out_cleanup;
+ 
+     if ((ret = dcc_r_argv(in_fd, &argv))
+         || (ret = dcc_scan_args(argv, &orig_input_tmp, &orig_output_tmp,
+                                 &tweaked_argv)))
+         goto out_cleanup;
+ 
++#ifdef XCODE_INTEGRATION
++    if (!strcmp(argv[0], "--host-info") && !argv[1]) {
++        if ((ret = dcc_x_result_header(out_fd, protover) ||
++                   dcc_send_host_info(out_fd))) {
++            /* Something went wrong, so send DOTO 0 */
++            dcc_x_token_int(out_fd, "DOTO", 0);
++        }
++        goto out_cleanup;
++    }
++#endif /* XCODE_INTEGRATION */
++
+     /* The orig_input_tmp and orig_output_tmp values returned by dcc_scan_args()
+      * are aliased with some element of tweaked_argv.  We need to copy them,
+      * because the calls to dcc_set_input() and dcc_set_output() below will
+      * free those elements. */
+     orig_input = strdup(orig_input_tmp);
+     orig_output = strdup(orig_output_tmp);
+     if (orig_input == NULL || orig_output == NULL) {
+       ret = EXIT_OUT_OF_MEMORY;
+@@ -775,8 +786,30 @@
+     free(err_fname);
+     free(out_fname);
+ 
+     free(client_cwd);
+     free(server_cwd);
+ 
+     return ret;
+ }
++
++
++#ifdef XCODE_INTEGRATION
++/**
++ * Send host information, including hardware information, the OS version, and
++ * compiler versions.
++ */
++int dcc_send_host_info(int out_fd)
++{
++    int ret;
++    char msg[256];
++    int ncpus = 0;
++
++    dcc_ncpus(&ncpus);
++
++    /* TODO(mark): Finish. */
++    snprintf(msg, sizeof(msg), "SYSTEM=Something\nCPUS=%d\n", ncpus);
++    ret = dcc_x_token_string(out_fd, "HINF", msg);
 +
 +    return ret;
 +}
