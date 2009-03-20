@@ -20,8 +20,8 @@ were consulted in developing these patches.
 
 REQUIREMENTS
 ------------
-This requires a suitable usr_include be located next to the cctools
-directory, for access to additional Mac headers.  See usr_include.README.
+This requires a suitable usr_include be located next to the cctools directory,
+for access to additional Mac headers.  See usr_include_maker.README.
 
 BUILD
 -----
