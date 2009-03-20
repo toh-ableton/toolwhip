@@ -34,10 +34,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/dirent.h>
+#include <dirent.h>
+#include <sys/file.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/statfs.h>
 #include <sys/types.h>
 #include <sys/mount.h>
 #include <fts.h>
@@ -139,7 +141,11 @@ static int lock_pullfile()
             return -1;
         }
     }
-    return open(pull_lock, O_WRONLY|O_CREAT|O_EXLOCK, 0777);
+    int fd = open(pull_lock, O_WRONLY|O_CREAT, 0777);
+    if (fd != -1) {
+        flock(fd, LOCK_EX);
+    }
+    return fd;
 }
 
 typedef struct _CachedPullfile {
@@ -181,10 +187,10 @@ static void dcc_all_cached_files(char *root, CachedPullfile **cache_lists, int c
                 newNode->path = (char *)malloc(file->fts_pathlen + 1);
                 bcopy(file->fts_path, newNode->path, file->fts_pathlen);
                 newNode->path[file->fts_pathlen] = 0;
-                newNode->accessTime = file->fts_statp->st_mtimespec.tv_sec;
+                newNode->accessTime = file->fts_statp->st_mtim.tv_sec;
                 newNode->size = (file->fts_statp->st_size + 1023) / 1024;
                 // Figure out what cache_lists bucket to put the file into.
-                age = current_time - file->fts_statp->st_atimespec.tv_sec;
+                age = current_time - file->fts_statp->st_atim.tv_sec;
                 if (age > 60 * 60) {
                     // it's at least one hour old so calculate time in hours starting with bucket 6
                     entry_index = 5 + age / (60 * 60);
@@ -428,8 +434,9 @@ static int dcc_handle_pull(dcc_indirection *indirect)
             /* if we have a file cached locally send the stat info, otherwise send the flag that we don't have a file */
             if (has_local_file) {
                 if (result == 0) result = dcc_x_token_int(indirect->out_fd, indirection_file_stat_token, indirection_file_stat_info_present);
-                if (result == 0) result = dcc_writex(indirect->out_fd, &st_pch.st_size, sizeof(st_pch.st_size));
-                if (result == 0) result = dcc_writex(indirect->out_fd, &st_pch.st_mtimespec, sizeof(st_pch.st_mtimespec));
+                long long st_size_64 = st_pch.st_size;
+                if (result == 0) result = dcc_writex(indirect->out_fd, &st_size_64, sizeof(st_size_64));
+                if (result == 0) result = dcc_writex(indirect->out_fd, &st_pch.st_mtim, sizeof(st_pch.st_mtim));
             } else {
                 if (dcc_x_token_int(indirect->out_fd, indirection_file_stat_token, indirection_no_file_stat_info))
                     result = -1;

@@ -27,7 +27,7 @@ int argv_contains(char **argv, const char *s);
 int dcc_redirect_fd(int, const char *fname, int);
 int str_startswith(const char *head, const char *worm);
 char *dcc_gethostname(void);
-void dcc_exit(int exitcode) NORETURN;
+void dcc_exit(int exitcode);
 int dcc_getenv_bool(const char *name, int def_value);
 int set_cloexec_flag (int desc, int value);
 int dcc_ignore_sigpipe(int val);
@@ -46,3 +46,6 @@ int dcc_dup_part(const char **psrc, char **pdst, const char *sep);
 size_t strlcpy(char *d, const char *s, size_t bufsize);
 #endif
 
+#ifndef HAVE_STRLCAT
+size_t strlcat(char *d, const char *s, size_t bufsize);
+#endif
