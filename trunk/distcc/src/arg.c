@@ -144,10 +144,19 @@ int dcc_scan_args(char *argv[], char **input_file, char **output_file,
 
     dcc_trace_argv("scanning arguments", argv);
 
+#ifdef XCODE_INTEGRATION
+    /* Xcode invokes the distcc client as "distcc --host-info HOST" to gather
+     * info about HOST.  When the request is transmitted to the distccd server,
+     * it will see only "--host-info" and no other arguments in argv. */
+    if (argv[0] && !strcmp(argv[0], "--host-info")) {
+        return 0;
+    }
+#endif /* XCODE_INTEGRATION */
+
     /* Things like "distcc -c hello.c" with an implied compiler are
      * handled earlier on by inserting a compiler name.  At this
      * point, argv[0] should always be a compiler name. */
-    if (argv[0][0] == '-') {
+    if (argv[0] && argv[0][0] == '-') {
         rs_log_error("unrecognized distcc option: %s", argv[0]);
         exit(EXIT_BAD_ARGUMENTS);
     }
@@ -211,9 +220,11 @@ int dcc_scan_args(char *argv[], char **input_file, char **output_file,
             } else if (!strcmp(a, "-frepo")) {
                 rs_log_info("compiler will emit .rpo files; must be local");
                 return EXIT_DISTCC_FAILED;
+#if 0
             } else if (str_startswith("-x", a)) {
                 rs_log_info("gcc's -x handling is complex; running locally");
                 return EXIT_DISTCC_FAILED;
+#endif
             } else if (str_startswith("-dr", a)) {
                 rs_log_info("gcc's debug option %s may write extra files; "
                             "running locally", a);

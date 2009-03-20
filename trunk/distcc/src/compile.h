@@ -35,6 +35,10 @@ int dcc_compile_remote(char **argv,
                        struct dcc_hostdef *host,
                        int *status);
 
+#ifdef XCODE_INTEGRATION
+int dcc_show_host_info(char *host);
+#endif
+
 /* compile.c */
 
 extern int dcc_scan_includes;

@@ -76,7 +76,7 @@ def _RealPrefix(path):
 
 
 def _MakeLinkFromMirrorToRealLocation(system_dir, client_root, system_links):
-  """Create a link under client root what will resolve to system dir on server.
+  """Create a link under client root that will resolve to system dir on server.
 
   See comments for CompilerDefaults class for rationale.
 
@@ -229,14 +229,33 @@ def _SystemSearchdirsGCC(compiler, language, canonical_lookup):
     % ("#include <...> search starts here:", "End of search list"),
     out,
     re.MULTILINE + re.DOTALL)
+
+  parse_error_msg = \
+           ( "Couldn't determine default system include directories\n"
+           + "for compiler '%s', language '%s':\n"
+           + "couldn't parse output of '%s'.\nReceived:\n%s") % \
+           (compiler, language, command, out)
+
   if match_obj == None:
-    raise NotCoveredError(
-             ( "Couldn't determine default system include directories\n"
-             + "for compiler '%s', language '%s':\n"
-             + "couldn't parse output of '%s'.\nReceived:\n%s") %
-             (compiler, language, command, out))
-  return [ canonical_lookup(directory)
-           for directory in match_obj.group(1).split() ]
+    raise NotCoveredError(parse_error_msg)
+
+  directories = []
+  for directory in match_obj.group(1).split('\n'):
+    if not directory.startswith(' '):
+      raise NotCoveredError(parse_error_msg)
+
+    directory = directory[1:]
+
+    # For our purposes, it doesn't matter whether the directory is a framework
+    # directory (-F) or an include directory (-I).  This only applies when
+    # using Apple GCC.
+    framework_string = ' (framework directory)'
+    if directory.endswith(framework_string):
+      directory = directory[:-len(framework_string)]
+
+    directories.append(canonical_lookup(directory))
+
+  return directories
 
 
 class CompilerDefaults(object):

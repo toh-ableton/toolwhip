@@ -245,6 +245,13 @@ int main(int argc, char **argv)
             argv++;
         }
 
+#ifdef XCODE_INTEGRATION
+        if (!strcmp(argv[1], "--host-info") && argc == 3) {
+            ret = dcc_show_host_info(argv[2]);
+            goto out;
+        }
+#endif /* XCODE_INTEGRATION */
+
         if ((ret = dcc_find_compiler(argv, &compiler_args)) != 0) {
             goto out;
         }

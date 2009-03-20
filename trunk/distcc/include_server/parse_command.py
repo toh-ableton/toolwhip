@@ -55,6 +55,7 @@ class ParseState:
     self.sysroot = None
     self.output_file = None
     self.iprefix = ""
+    self.arch = None
     self.Dopts = []
 
   def set_nostdinc(self): self.nostdinc = True
@@ -63,6 +64,7 @@ class ParseState:
   def set_sysroot(self, x): self.sysroot = x
   def set_outputfile(self, x): self.output_file = x
   def set_iprefix(self, x): self.iprefix = x
+  def set_arch(self, x): self.arch = x
 
 def _SplitMacroArg(arg):
   """Split an arg as found in -Darg
@@ -96,6 +98,7 @@ CPP_OPTIONS_MAYBE_TWO_WORDS = {
   '-MF':            lambda ps, arg: None,
   '-MT':            lambda ps, arg: None,
   '-MQ':            lambda ps, arg: None,
+  '-arch':          lambda ps, arg: ps.set_arch(arg),
   '-include':       lambda ps, arg: ps.include_files.append(arg),
   '-imacros':       lambda ps, arg: ps.include_files.append(arg),
   '-idirafter':     lambda ps, arg: ps.after_system_dirs.append(arg),
@@ -104,8 +107,7 @@ CPP_OPTIONS_MAYBE_TWO_WORDS = {
                                       os.path.join(ps.iprefix, arg)),
   '-iwithprefixbefore':  lambda ps, arg: ps.i_dirs.append(
                                            os.path.join(ps.iprefix, arg)),
-#  '-isysroot':      lambda ps, arg: ps.set_isysroot(arg),
-  '-isysroot':      lambda ps, arg: _RaiseNotImplemented('-isysroot'),
+  '-isysroot':      lambda ps, arg: ps.set_isysroot(arg),
   '-imultilib':     lambda ps, arg: _RaiseNotImplemented('-imultilib'),
   '-isystem':       lambda ps, arg: ps.before_system_dirs.append(arg),
   '-iquote':        lambda ps, arg: ps.quote_dirs.append(arg),
