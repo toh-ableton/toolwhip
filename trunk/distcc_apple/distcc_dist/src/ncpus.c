@@ -156,6 +156,29 @@ int dcc_ncpus(int *ncpus)
   http://techpubs.sgi.com/library/tpl/cgi-bin/getdoc.cgi?coll=0650&db=man&fname=/usr/share/catman/p_man/cat3c/sysconf.z
 */
 
+int dcc_cpuspeed(unsigned long long *speed)
+{
+  FILE* f = fopen("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq", "r");
+  if (!f) {
+    rs_log_error("open cpuinfo_max_freq failed: %s", strerror(errno));
+    *speed = 1;
+    return EXIT_DISTCC_FAILED;
+  }
+
+  long long khz;
+  int fscanf_rv = fscanf(f, "%lld", &khz);
+  fclose(f);
+
+  if (fscanf_rv != 1 || khz <= 0) {
+    rs_log_error("cpuinfo_max_freq makes no sense");
+    *speed = 1;
+    return EXIT_DISTCC_FAILED;
+  }
+
+  *speed = khz * 1000;
+  return 0;
+}
+
 int dcc_ncpus(int *ncpus)
 {
 #if defined(_SC_NPROCESSORS_ONLN)

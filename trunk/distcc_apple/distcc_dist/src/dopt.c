@@ -105,6 +105,8 @@ enum {
     opt_log_level
 };
 
+const char* opt_system_version = NULL;
+
 
 const struct poptOption options[] = {
     { "allow", 'a',      POPT_ARG_STRING, 0, 'a', 0, 0 },
@@ -132,6 +134,7 @@ const struct poptOption options[] = {
     { "max-cache-size", 0, POPT_ARG_INT,  &pullfile_max_cache_size,  0, 0, 0 },
     { "min-disk-free", 0, POPT_ARG_INT,  &pullfile_min_free_space,  0, 0, 0 },
     { "priority", 0,     POPT_ARG_INT,  &build_machine_priority,  0, 0, 0 },
+    { "system-version", 0, POPT_ARG_STRING, &opt_system_version, 0, 0, 0},
     { 0, 0, 0, 0, 0, 0, 0 }
 };
 
@@ -153,6 +156,8 @@ static void distccd_show_usage(void)
 "    --max-cache-age            maximum time cached file are kept (hours)\n"
 "    --max-cache-size           maximum disk use for cached files (Mb)\n"
 "    --min-disk-free            minimum free space to preserve on cache filesystem (Mb)\n"
+"    --system-version=STRING    lie and pretend to be this type of system\n"
+"                               example: \"10.5.6 (9G55, i386)\"\n"
 "  Networking:\n"
 "    -p, --port PORT            TCP port to listen on\n"
 "    --listen ADDRESS           IP address to listen on\n"
@@ -270,6 +275,13 @@ int distccd_parse_options(int argc, const char **argv)
             exitcode = EXIT_BAD_ARGUMENTS;
             goto out_exit;
         }
+    }
+
+    if (!opt_system_version) {
+        rs_log(RS_LOG_NONAME|RS_LOG_ERR|RS_LOG_NO_PID,
+               "must supply --system-version");
+        exitcode = EXIT_BAD_ARGUMENTS;
+        goto out_exit;
     }
 
     poptFreeContext(po);

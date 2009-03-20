@@ -9,8 +9,10 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <mach-o/arch.h>
+#include <sys/param.h>
+#include "dopt.h"
 #include "trace.h"
+#include "util.h"
 #include "versinfo.h"
 
 // Path to xcode-select(1) to use to find the current developer directory path
@@ -68,7 +70,11 @@ static const char *dcc_get_executable_path()
 
     if (*exe_path) return exe_path;
         
+#if 0
     if (_NSGetExecutablePath(buf, &bufsize) != 0) {
+#else
+    if (readlink("/proc/self/exe", buf, sizeof(buf)) == -1) {
+#endif
         rs_log_error("Cannot get executable path for compilers");
         return NULL;
     }
@@ -110,7 +116,12 @@ static const char *dcc_get_xcodeselect_path()
     char *returnPath = NULL;
     static char xcodeSelectUsrPath[PATH_MAX];
 
+#if 0
     char *developerPath = dcc_run_simple_command(XCODE_SELECT_PATH" --print-path");
+#else
+    char *developerPath = malloc(PATH_MAX);
+    strlcpy(developerPath, "/Developer", PATH_MAX);
+#endif
     if (NULL == developerPath) {
         rs_log_error(XCODE_SELECT_PATH" failed.");
     }
@@ -145,7 +156,7 @@ static const char *dcc_get_usr_path()
 {
     const char *usr_path;
     
-    if (dcc_getenv_bool(XCODE_SELECT_ENV_SWITCH)) {
+    if (dcc_getenv_bool(XCODE_SELECT_ENV_SWITCH, NULL)) {
         usr_path = dcc_get_xcodeselect_path();
     }
     else {
@@ -317,7 +328,7 @@ static char *_dcc_get_compiler_version(CompilerInfo *compiler)
         const char *c_path = compiler->abs_path;
         if (stat(c_path, &sb) == 0 && compiler->versionInfo != NULL) {
             // we found the compiler, check that the timestamp is unchanged
-            if (memcmp(&sb.st_ctimespec, &compiler->modTime, sizeof(struct timespec)) != 0) {
+            if (memcmp(&sb.st_ctim, &compiler->modTime, sizeof(struct timespec)) != 0) {
                 // didn't match, so throw away version number
                 rs_log_warning("compiler version changed: %s", c_path);
                 //free(compiler->versionInfo); // leak; should be very uncommon
@@ -343,7 +354,7 @@ static char *_dcc_get_compiler_version(CompilerInfo *compiler)
                     compiler->versionInfo = (char *)malloc(newline+1);
                     strncpy(compiler->versionInfo, version, newline);
                     compiler->versionInfo[newline]=0;
-                    compiler->modTime = sb.st_ctimespec;
+                    compiler->modTime = sb.st_ctim;
                 }
             }
         }
@@ -415,6 +426,7 @@ char *dcc_get_system_version(void)
 {
     static char *ret = NULL;
     if (ret == NULL) {
+#if 0
         char *sw_vers = dcc_run_simple_command("/usr/bin/sw_vers");
         if (sw_vers) {
             char *prodVers, *prodVersStr = "ProductVersion:";
@@ -482,6 +494,9 @@ char *dcc_get_system_version(void)
             sprintf(ret, "%s (%s, %s)", prodVers, buildVers, archName);
             free(sw_vers);
         }
+#else
+        ret = strdup(opt_system_version);
+#endif
     }
     return ret;
 }

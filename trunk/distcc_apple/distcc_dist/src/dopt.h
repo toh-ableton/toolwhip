@@ -39,3 +39,4 @@ extern int opt_lifetime;
 extern char *opt_listen_addr;
 extern int opt_niceness;
 extern int build_machine_priority;
+extern const char* opt_system_version;

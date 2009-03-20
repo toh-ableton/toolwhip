@@ -34,10 +34,10 @@ the 32-bit Avahi libraries must be availalbe.  See the "FUNKY" section below.
 
 BUILD
 -----
-mkdir distcc.obj
-cd distcc.obj
+mkdir distcc_apple.obj
+cd distcc_apple.obj
 CC="gcc -m32" CFLAGS="-O2" LIBS="-ldns_sd -lpthread" \
-  sh ../distcc-1088/distcc_dist/configure --prefix=/Developer
+  sh ../distcc_apple/distcc_dist/configure --prefix=/Developer
 make distccd
 
 INSTALL

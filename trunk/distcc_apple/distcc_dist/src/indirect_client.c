@@ -35,7 +35,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/dirent.h>
+#include <dirent.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -98,13 +98,13 @@ static int dcc_handle_remote_indirection_pull(int ifd)
             pull_response = indirection_pull_response_file_missing;
             rs_log_warning("Unable to send pull file: %s - %s", path, strerror(errno));
         } else {
-            if (file_stat_info_flag == indirection_file_stat_info_present && st_pullfile.st_size == file_size && st_pullfile.st_mtimespec.tv_sec == mod_time.tv_sec && st_pullfile.st_mtimespec.tv_nsec == mod_time.tv_nsec) {
+            if (file_stat_info_flag == indirection_file_stat_info_present && st_pullfile.st_size == file_size && st_pullfile.st_mtime == mod_time.tv_sec && st_pullfile.st_mtim.tv_nsec == mod_time.tv_nsec) {
                 pull_response = indirection_pull_response_file_ok;
                 rs_log_info("using cached pull file");
             } else {
                 if (file_stat_info_flag == indirection_file_stat_info_present) {
                     rs_log_info("pull file changed, sending");
-                    rs_log_info("my size = %d, my seconds = %d, my nsec = %d\nhis size = %d, his seconds = %d, his nsec = %d", (int)st_pullfile.st_size, st_pullfile.st_mtimespec.tv_sec, st_pullfile.st_mtimespec.tv_nsec, (int)file_size, mod_time.tv_sec, mod_time.tv_nsec);
+                    rs_log_info("my size = %d, my seconds = %d, my nsec = %d\nhis size = %d, his seconds = %d, his nsec = %d", (int)st_pullfile.st_size, st_pullfile.st_mtime, st_pullfile.st_mtim.tv_nsec, (int)file_size, mod_time.tv_sec, mod_time.tv_nsec);
                 } else {
                     rs_log_info("pull file missing, sending");
                 }
@@ -116,7 +116,7 @@ static int dcc_handle_remote_indirection_pull(int ifd)
         } else {
             if (pull_response == indirection_pull_response_file_download) {
                 if (dcc_x_file(ifd, path, indirection_pull_file, DCC_COMPRESS_LZO1X, &send_size) ||
-                    dcc_writex(ifd, &st_pullfile.st_mtimespec, sizeof(st_pullfile.st_mtimespec))) {
+                    dcc_writex(ifd, &st_pullfile.st_mtim, sizeof(st_pullfile.st_mtim))) {
                     rs_log_error("failure sending pull file");
                 }
             }
