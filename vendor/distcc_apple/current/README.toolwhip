@@ -1,0 +1,16 @@
+Home: http://www.opensource.apple.com/darwinsource/
+URL: http://www.opensource.apple.com/darwinsource/tarballs/other/distcc-1088.tar.gz
+Version: distcc (Apple) 1088 (Xcode Tools 3.1.2)
+License: GPL
+License File: distcc_dist/COPYING
+Local Vendor Branch: http://toolwhip.googlecode.com/svn/vendor/distcc_apple
+Local Trunk: http://toolwhip.googlecode.com/svn/trunk/distcc_apple
+
+Description:
+This is the Apple-customized version of distcc, which identifies itself as
+2.18.5-Apple.1.  A comparable non-Apple release is 2.18.3, from
+http://distcc.googlecode.com/files/distcc-2.18.3.tar.bz2 .
+
+Local Modifications:
+Only this file, README.toolwhip, has been added to the local vendor branch.
+All other local modifications are made on the local trunk.
