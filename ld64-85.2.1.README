@@ -19,12 +19,12 @@ were consulted in developing these patches.
 
 REQUIREMENTS
 ------------
-This requires a suitable usr_include be located next to the ld64-85.2.1
+This requires a suitable usr_include be located next to the ld64
 directory, for access to additional Mac headers.  See usr_include.README.
 
 BUILD
 -----
-cd ld64-85.2.1
+cd ld64
 CC="gcc -m32 -std=gnu99" CXX="g++ -m32" CFLAGS="-O2" CXXFLAGS="${CFLAGS}" make -f Makefile.linux
 
 Note: -m32 is required on x86_64 systems because ld64 is not 64-bit
