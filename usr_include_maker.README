@@ -1,0 +1,25 @@
+Apple /usr/include files to build cctools and ld64 on non-Macs
+Mark Mentovai
+2009 March 5
+
+WHAT?
+-----
+To build cctools and ld64 on non-Macs, some additional headers from the Mac
+OS SDK are needed.  The SDKs are supplied with Xcode Tools, available from
+http://connect.apple.com/ .
+
+usr_include_maker will take the necessary headers, patch them appropriately,
+and package them up into usr_include.tar.bz2.  This should be unpacked next
+to the cctools or ld64 directory on the non-Mac system on which you wish to
+build the Apple cctools or ld64.
+
+Run usr_include_maker on any system that has the Mac OS X 10.5 SDK in
+/Developer/SDKs/MacOSX10.5.sdk.  Macs running 10.5 (or later?) with Xcode
+installed will suffice.
+
+ACKNOWLEDGEMENTS
+----------------
+This is similar to odcctools, http://odcctools.darwinports.com/.  odcctools
+has not been updated in over two years and does not apply to the latest
+toolchain, such as the 10.5/Xcode 3 toolchain.  Some portions of odcctools
+were consulted in developing these patches.
