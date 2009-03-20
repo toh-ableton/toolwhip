@@ -596,6 +596,17 @@ static int dcc_run_job(int in_fd,
                                 &tweaked_argv)))
         goto out_cleanup;
 
+#ifdef XCODE_INTEGRATION
+    if (!strcmp(argv[0], "--host-info") && !argv[1]) {
+        if ((ret = dcc_x_result_header(out_fd, protover) ||
+                   dcc_send_host_info(out_fd))) {
+            /* Something went wrong, so send DOTO 0 */
+            dcc_x_token_int(out_fd, "DOTO", 0);
+        }
+        goto out_cleanup;
+    }
+#endif /* XCODE_INTEGRATION */
+
     /* The orig_input_tmp and orig_output_tmp values returned by dcc_scan_args()
      * are aliased with some element of tweaked_argv.  We need to copy them,
      * because the calls to dcc_set_input() and dcc_set_output() below will
@@ -780,3 +791,25 @@ out_cleanup:
 
     return ret;
 }
+
+
+#ifdef XCODE_INTEGRATION
+/**
+ * Send host information, including hardware information, the OS version, and
+ * compiler versions.
+ */
+int dcc_send_host_info(int out_fd)
+{
+    int ret;
+    char msg[256];
+    int ncpus = 0;
+
+    dcc_ncpus(&ncpus);
+
+    /* TODO(mark): Finish. */
+    snprintf(msg, sizeof(msg), "SYSTEM=Something\nCPUS=%d\n", ncpus);
+    ret = dcc_x_token_string(out_fd, "HINF", msg);
+
+    return ret;
+}
+#endif /* XCODE_INTEGRATION */

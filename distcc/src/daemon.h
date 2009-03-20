@@ -44,6 +44,9 @@ int dcc_preforking_parent(int listen_fd);
 /* serve.c */
 struct sockaddr;
 int dcc_service_job(int in_fd, int out_fd, struct sockaddr *, int);
+#ifdef XCODE_INTEGRATION
+int dcc_send_host_info(int out_fd);
+#endif
 
 /* setuid.c */
 int dcc_discard_root(void);

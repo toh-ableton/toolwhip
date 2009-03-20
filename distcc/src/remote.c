@@ -312,3 +312,87 @@ int dcc_compile_remote(char **argv,
 
     return ret;
 }
+
+
+#ifdef XCODE_INTEGRATION
+/**
+ * Print information about a host to stdout.
+ *
+ * This function connects to host, sends an HINF query, and prints the result.
+ * Xcode uses the output to determine various characteristics about the host,
+ * such as the hardware and operating system in use, the compilers available,
+ * and the number of CPUs available.  Only distccd servers built with Xcode
+ * integration support HINF.
+ *
+ * @param host The host to query.
+ *
+ * Returns 0 on success, otherwise error.  Returning nonzero does not
+ */
+int dcc_show_host_info(char *host)
+{
+    int to_net_fd = -1, from_net_fd = -1;
+    int ret;
+    pid_t ssh_pid = 0;
+    int ssh_status;
+    char *info;
+    struct dcc_hostdef *hostdef;
+    int n_hosts = 0;
+    const char *argv[] = { "--host-info", NULL };
+
+    if ((ret = dcc_parse_hosts(host, "command line",
+                               &hostdef, &n_hosts, NULL))) {
+        rs_log_error("bad host argument: %s", host);
+        return ret;
+    }
+
+    if (n_hosts != 1) {
+        rs_log_error("too many hosts for --host-info %s", host);
+        return EXIT_BAD_ARGUMENTS;
+    }
+
+    if ((ret = dcc_remote_connect(hostdef, &to_net_fd,
+                                  &from_net_fd, &ssh_pid))) {
+        rs_log_error("couldn't connect to %s", host);
+        printf("ERROR=%d\n", errno);
+        return ret;
+    }
+
+    if ((ret = dcc_send_header(to_net_fd, (char**)argv, hostdef)) != 0) {
+        rs_log_error("failed to send request");
+        printf("ERROR=%d\n", errno);
+        goto out;
+    }
+
+    if ((ret = dcc_r_result_header(from_net_fd, hostdef->protover)))
+        goto out; /* dcc_r_result_header logs its own error on failure */
+
+    if ((ret = dcc_r_token_string(from_net_fd, "HINF", &info))) {
+        rs_log_error("failed to read result");
+        printf("ERROR=%d\n", errno);
+    }
+
+  out:
+    /* Close socket so that the server can terminate, rather than
+     * making it wait until we've finished our work. */
+    if (to_net_fd != from_net_fd) {
+        if (to_net_fd != -1)
+            dcc_close(to_net_fd);
+    }
+    if (from_net_fd != -1)
+        dcc_close(from_net_fd);
+
+    /* Collect the SSH child.  Strictly this is unnecessary; it might slow the
+     * client down a little when things could otherwise be proceeding in the
+     * background.  But it helps make sure that we don't assume we succeeded
+     * when something possibly went wrong, and it allows us to account for the
+     * cost of the ssh child. */
+    if (ssh_pid) {
+        dcc_collect_child("ssh", ssh_pid, &ssh_status, timeout_null_fd); /* ignore failure */
+    }
+
+    if (!ret)
+        printf("%s\n", info);
+
+    return ret;
+}
+#endif /* XCODE_INTEGRATION */
