@@ -220,7 +220,8 @@ int dcc_scan_args(char *argv[], char **input_file, char **output_file,
             } else if (!strcmp(a, "-frepo")) {
                 rs_log_info("compiler will emit .rpo files; must be local");
                 return EXIT_DISTCC_FAILED;
-#if 0
+#ifdef XCODE_INTEGRATION
+            // TODO(tvl): finish this for real
             } else if (str_startswith("-x", a)) {
                 rs_log_info("gcc's -x handling is complex; running locally");
                 return EXIT_DISTCC_FAILED;
