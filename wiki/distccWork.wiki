@@ -3,5 +3,7 @@
 The pending tasks for the distcc work
   * -x support -- tvl
   * finish out hostinfo - mark
+  * -include
+  * -isysroot
   * split out include dirs from framework dirs
   * see if we need to beef up -F support in the include server
