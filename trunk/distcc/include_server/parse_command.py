@@ -114,7 +114,7 @@ CPP_OPTIONS_MAYBE_TWO_WORDS = {
 #  '--sysroot=':     lambda ps, arg: ps.set_sysroot(arg),
   '--sysroot=':     lambda ps, arg: None,
 }
-CPP_OPTIONS_MAYBE_TWO_WORDS_FIRST_LETTERS = ('M', 'i', '-')
+CPP_OPTIONS_MAYBE_TWO_WORDS_FIRST_LETTERS = ('M', 'a', 'i', '-')
 # A "compile-time" check to make sure the first-letter list is up-to-date
 for key in CPP_OPTIONS_MAYBE_TWO_WORDS.keys():
   assert key[1] in CPP_OPTIONS_MAYBE_TWO_WORDS_FIRST_LETTERS
