@@ -2,8 +2,12 @@
 
 The pending tasks for the distcc work
   * -x support -- tvl
-  * finish out hostinfo - mark
+     * -x in distcc/distccd
+     * -x in include_server
+  * finish out --hostinfo - mark
   * -include
   * -isysroot
+     * include_server needs to know that -x and -isysroot can alter the set of default system search directories.  CompilerDefaults' self.system_dirs_default already seems to accept language as a dimension for variance, this can probably be tied to -x if it's not already.  -isysroot should be added as an additional dimension.
   * split out include dirs from framework dirs
   * see if we need to beef up -F support in the include server
+  * reintegrate xcodedistcc advertisement via dns_sd (apple)/avahi (linux)
