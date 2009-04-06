@@ -1181,7 +1181,7 @@ class Gdb_Case(CompileHello_Case):
 
     def runtest(self):
         # Don't try to run the test if gdb is not installed
-        error_rc, _, _ = self.runcmd_unchecked("gdb --help")
+        error_rc, _, _ = self.runcmd_unchecked("gdb -n --help")
         if error_rc != 0:
             raise comfychair.NotRunError ('gdb could not be found on path')
         else:
@@ -1202,7 +1202,7 @@ class Gdb_Case(CompileHello_Case):
         f = open('gdb_commands', 'w')
         f.write('break main\nrun\nstep\n')
         f.close()
-        out, errs = self.runcmd("gdb --batch --command=gdb_commands "
+        out, errs = self.runcmd("gdb -n --batch --command=gdb_commands "
                                 "link/%s </dev/null" % testtmp_exe)
         # Apparently, due to a gdb bug, gdb can produce the (harmless) error
         # message "Failed to read a valid object file" on some systems.
@@ -1229,7 +1229,7 @@ class Gdb_Case(CompileHello_Case):
         gcc_preprocessing_preserves_pwd = (error_rc == 0);
         if ((pump_mode and _IsElf('./%s' % testtmp_exe))
           or ((not pump_mode) and gcc_preprocessing_preserves_pwd)):
-            out, errs = self.runcmd("gdb --batch --command=../gdb_commands "
+            out, errs = self.runcmd("gdb -n --batch --command=../gdb_commands "
                                     "./%s </dev/null" % testtmp_exe)
             if errs:
                 self.assert_equal(errs, error_message)
