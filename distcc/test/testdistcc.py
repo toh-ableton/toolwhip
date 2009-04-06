@@ -1315,6 +1315,8 @@ class DashONoSpace_Case(CompileHello_Case):
             raise comfychair.NotRunError ('Sun assembler wants space after -o')
         elif sys.platform.startswith ('osf1'):
             raise comfychair.NotRunError ('GCC mips-tfile wants space after -o')
+        elif sys.platform == 'darwin':
+            raise comfychair.NotRunError ('Apple as wants space after -o')
         else:
             CompileHello_Case.runtest (self)
 
