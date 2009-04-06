@@ -49,7 +49,7 @@ DEBUG_DATA = basics.DEBUG_DATA
 NotCoveredError = basics.NotCoveredError
 
   
-def _RealPrefix(path, in_dir='/'):
+def _RealPrefix(path, in_dir):
   """Determine longest directory prefix and whether path contains a symlink.
 
   Given an absolute path PATH, figure out the longest prefix of PATH where
