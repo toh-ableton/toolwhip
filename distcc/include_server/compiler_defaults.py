@@ -49,25 +49,33 @@ DEBUG_DATA = basics.DEBUG_DATA
 NotCoveredError = basics.NotCoveredError
 
   
-def _RealPrefix(path):
+def _RealPrefix(path, in_dir='/'):
   """Determine longest directory prefix and whether path contains a symlink.
 
   Given an absolute path PATH, figure out the longest prefix of PATH where
   every component of the prefix is a directory -- not a file or symlink.
+
+  Checking does not begin until entering in_dir, to allow for directory
+  hierarchies that may contain insignificant symbolic links.  This handles
+  the case where /tmp is a symbolic link, as on Mac OS X.  in_dir must be
+  a parent of path.
 
   Args:
     path: a string starting with '/'
   Returns:
     a pair consisting of
     - the prefix
-    - a bool, which is True iff PATH contained a symlink.
+    - a bool, which is True iff PATH contained a symlink within in_dir.
   """
+  assert in_dir == path[:len(in_dir)] and path[len(in_dir)] == '/'
   prefix = "/"
   parts = path.split('/')
   while prefix != path:
     part = parts.pop(0)
     last_prefix = prefix
     prefix = os.path.join(prefix, part)
+    if len(prefix) < len(in_dir):
+      continue
     if os.path.islink(prefix):
       return last_prefix, True
     if not os.path.isdir(prefix):
@@ -108,7 +116,7 @@ def _MakeLinkFromMirrorToRealLocation(system_dir, client_root, system_links):
   rooted_system_dir = client_root + system_dir
   # Typical values for rooted_system_dir:
   #  /dev/shm/tmpX.include_server-X-1/usr/include
-  real_prefix, is_link = _RealPrefix(rooted_system_dir)
+  real_prefix, is_link = _RealPrefix(rooted_system_dir, client_root)
   parent = os.path.dirname(rooted_system_dir)
   if real_prefix == rooted_system_dir:
     # rooted_system_dir already exists as a real (non-symlink) path.
@@ -138,7 +146,7 @@ def _MakeLinkFromMirrorToRealLocation(system_dir, client_root, system_links):
   else:
     # A link above real_prefix has already been created with this routine.
     return
-  assert _RealPrefix(parent) == (parent, False), parent
+  assert _RealPrefix(parent, client_root) == (parent, False), parent
   depth = len([c for c in system_dir if c == '/'])
   # The more directories on the path system_dir, the more '../' need to
   # appended. We add enough '../' to get to the root directory. It's OK
