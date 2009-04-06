@@ -571,18 +571,22 @@ class DotD_Case(SimpleDistCC_Case):
           ("foo.c -o hello.bar.foo -MD", "*.d", 1, None),
           ("foo.c -MD", "*.d", 1, None),
           ("foo.c -o hello. -MD", "*.d", 1, None),
-# The following test case fails under Darwin Kernel Version 8.11.0. For some
-# reason, gcc refuses to produce 'hello.d' when the object file is named
-# 'hello.D'.
-#         ("foo.c -o hello.D -MD -MT tootoo", "hello.*d", 1, "tootoo"),
+          # The following test case fails on case-insensitive filesystems
+          # because of the conflict between 'hello.d' and 'hello.D'.
+          # ("foo.c -o hello.D -MD -MT tootoo", "hello.*d", 1, "tootoo"),
           ("foo.c -o hello. -MD -MT tootoo",  "hello.*d", 1, "tootoo"),
           ("foo.c -o hello.o -MD -MT tootoo", "hello.*d", 1, "tootoo"),
           ("foo.c -o hello.o -MD -MF foobar", "foobar", 1, None),
            ]
 
         # These C++ cases fail if your gcc installation doesn't support C++.
-        error_rc, _, _ = self.runcmd_unchecked("touch testtmp.cpp; " +
-            _gcc + " -c testtmp.cpp -o /dev/null")
+        # For these, _gcc needs to be able to link C++, not just compile it.
+        # Even when C++ is supported, the gcc driver identified by _gcc may
+        # not link against libstdc++ although g++ would.  Because the tests
+        # use _gcc, the C++ cases must be skipped in that event.
+        error_rc, _, _ = self.runcmd_unchecked(
+            "echo 'int main(int, char**) { return 0; }' > testtmp.cpp; " +
+            _gcc + " testtmp.cpp -o /dev/null")
         if error_rc == 0:
           cases.extend([("foo.cpp -o hello.o", "*.d", 0, None),
                         ("foo.cpp -o hello", "*.d", 0, None)])
