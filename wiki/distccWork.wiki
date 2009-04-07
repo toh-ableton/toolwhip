@@ -8,7 +8,7 @@ The pending tasks for the distcc work
   * split out include dirs from framework dirs
   * see if we need to beef up -F support in the include server
   * reintegrate xcodedistcc advertisement via dns_sd (apple)/avahi (linux)
-  * probably don't need to do anything with these except stop collecting -arch:
+  * probably don't need to do anything with these except stop collecting -arch: -- tvl
      * -arch support in the include_server doesn't seem to do anything w/ what it collects
      * -arch support probably needs to support building >1 arch at a time like gcc does.
   * what happens if you pass already-preprocessed input like .i and .ii to the include server?
