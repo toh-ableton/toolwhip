@@ -29,6 +29,13 @@ CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@ ${DIR_DEFS} \
 	   -Isrc -I"$(srcdir)/src" -I"$(srcdir)/lzo" $(POPT_INCLUDES)
 
+# SETUP_PYTHON_CFLAGS is the value of PYTHON_CFLAGS as passed to setup.py
+# when building the include server.  It contains both CFLAGS and PYTHON_CFLAGS.
+# -MD is removed from CFLAGS if present because on Macs, setup.py insists on
+# providing multiple -arch options, and multiple -arch options are incompatible
+# with -MD.
+SETUP_PYTHON_CFLAGS = $(filter-out -MD,$(CFLAGS)) $(PYTHON_CFLAGS)
+
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
 builddir = @builddir@
@@ -562,7 +569,7 @@ include-server:
 	  mkdir -p "$(include_server_builddir)" &&      \
 	  DISTCC_VERSION="$(VERSION)"			\
 	  SRCDIR="$(srcdir)"                            \
-	  CFLAGS="$(CFLAGS) $(PYTHON_CFLAGS)"           \
+	  PYTHON_CFLAGS="$(SETUP_PYTHON_CFLAGS)"        \
 	  CPPFLAGS="$(CPPFLAGS)"                        \
 	  $(INCLUDESERVER_PYTHON) "$(srcdir)/include_server/setup.py" \
 	      build 					\
@@ -921,7 +928,7 @@ clean-include-server:
 	if test -n "$(INCLUDESERVER_PYTHON)"; then	\
 	  DISTCC_VERSION="$(VERSION)"			\
 	  SRCDIR="$(srcdir)"                            \
-	  CFLAGS="$(CFLAGS) $(PYTHON_CFLAGS)"           \
+	  PYTHON_CFLAGS="$(SETUP_PYTHON_CFLAGS)"        \
 	  CPPFLAGS="$(CPPFLAGS)"                        \
 	  $(INCLUDESERVER_PYTHON) "$(srcdir)/include_server/setup.py" \
 	      clean	\
@@ -1039,10 +1046,10 @@ install-include-server: include-server pump
 	  echo "Not building $@: No suitable python found"; \
 	else						\
 	  mkdir -p "$(include_server_builddir)" &&      \
-	  DESTDIR=`cd "$(DESTDIR)/" && pwd` &&            \
+	  DESTDIR=`cd "$(DESTDIR)/" && pwd` &&          \
 	  DISTCC_VERSION="$(VERSION)"			\
 	  SRCDIR="$(srcdir)"                            \
-	  CFLAGS="$(CFLAGS) $(PYTHON_CFLAGS)"           \
+	  PYTHON_CFLAGS="$(SETUP_PYTHON_CFLAGS)"        \
 	  CPPFLAGS="$(CPPFLAGS)"                        \
 	  $(INCLUDESERVER_PYTHON) "$(srcdir)/include_server/setup.py" \
 	      build 					\
