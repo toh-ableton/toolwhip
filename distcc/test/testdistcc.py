@@ -515,8 +515,31 @@ class ScanArgs_Case(SimpleDistCC_Case):
                  # Produce .rpo files
                  ("g++ -frepo foo.C", "local"),
 
+                 # Test -x values that should work
+                 ("gcc -x c -c foo.c", "distribute", "foo.c", "foo.o"),
+                 ("gcc -x cpp-output -c foo.c", "distribute", "foo.c", "foo.o"),
+                 ("gcc -x c++ -c foo.c", "distribute", "foo.c", "foo.o"),
+                 ("gcc -x c++-cpp-output -c foo.c", "distribute", "foo.c", "foo.o"),
+                 ("gcc -x objective-c -c foo.c", "distribute", "foo.c", "foo.o"),
+                 ("gcc -x objc-cpp-output -c foo.c", "distribute", "foo.c", "foo.o"),
+                 ("gcc -x objective-c++ -c foo.c", "distribute", "foo.c", "foo.o"),
+                 ("gcc -x objc++-cpp-output -c foo.c", "distribute", "foo.c", "foo.o"),
+
+                 # Test -x values that would work if they had a space
+                 ("gcc -xc -c foo.c", "local"),
+                 ("gcc -xcpp-output -c foo.c", "local"),
+                 ("gcc -xc++ -c foo.c", "local"),
+                 ("gcc -xc++-cpp-output -c foo.c", "local"),
+                 ("gcc -xobjective-c -c foo.c", "local"),
+                 ("gcc -xobjc-cpp-output -c foo.c", "local"),
+                 ("gcc -xobjective-c++ -c foo.c", "local"),
+                 ("gcc -xobjc++-cpp-output -c foo.c", "local"),
+
+                 # Test -x values that shouldn't work
                  ("gcc -xassembler-with-cpp -c foo.c", "local"),
                  ("gcc -x assembler-with-cpp -c foo.c", "local"),
+                 ("gcc -xnothing-real -c foo.c", "local"),
+                 ("gcc -x nothing-real -c foo.c", "local"),
 
                  ("gcc -specs=foo.specs -c foo.c", "local"),
 
@@ -1059,6 +1082,7 @@ int main(void) {
 }
 """
 
+
 class ObjectiveCPlusPlus_Case(LanguageSpecific_Case):
     """Test building an Objective-C++ program."""
 
@@ -1070,6 +1094,301 @@ class ObjectiveCPlusPlus_Case(LanguageSpecific_Case):
 
     def extension(self):
       return ".mm"
+
+    def libraries(self):
+      return "-lstdc++"
+
+    def headerSource(self):
+        return """
+#define MESSAGE "hello objective-c++"
+"""
+
+    def source(self):
+        return """
+#import <iostream>
+#import "testhdr.h"
+
+/* TODO: use Objective-C features. */
+
+int main(void) {
+    std::cout << MESSAGE << std::endl;
+    return 0;
+}
+"""
+
+    def checkBuiltProgramMsgs(self, msgs):
+        self.assert_equal(msgs, "hello objective-c++\n")
+
+
+class DashXLanguageSpecific_Case(Compilation_Case):
+    """Abstract base class to test building programs with -x language."""
+    def runtest(self):
+        # Don't try to run the test if the language's compiler is not installed
+        source = self.sourceFilename()
+        lang = self.languageGccName()
+        error_rc, _, _ = self.runcmd_unchecked(
+            "touch " + source + "; " +
+            "rm -f testtmp.o; " +
+            _gcc + " -x " + lang + " " + self.compileOpts() + " " +
+                " -c " + source + " " + self.libraries() +
+            " && " + "test -f testtmp.o" )
+        if error_rc != 0:
+            raise comfychair.NotRunError ('GNU ' + self.languageName() +
+                                          ' not installed')
+        else:
+            Compilation_Case.runtest (self)
+
+    def sourceFilename(self):
+      return "testtmp.abc"
+
+    def compileCmd(self):
+        return self.distcc_without_fallback() + \
+               _gcc + " -x " + self.languageGccName() + " -o testtmp.o " + \
+               self.compileOpts() + " -c " + self.sourceFilename()
+
+    def languageGccName(self):
+      """Language name suitable for use with 'gcc -x'"""
+      raise NotImplementedError
+
+    def languageName(self):
+      """Human-readable language name."""
+      raise NotImplementedError
+
+
+class DashXC_Case(DashXLanguageSpecific_Case):
+    """Test building a C program with -x."""
+
+    def languageName(self):
+      return "C"
+
+    def languageGccName(self):
+      return "c"
+
+    def headerSource(self):
+        return """
+#define HELLO_WORLD "hello world"
+"""
+
+    def source(self):
+        return """
+#include <stdio.h>
+#include "testhdr.h"
+int main(void) {
+    puts(HELLO_WORLD);
+    return 0;
+}
+"""
+
+    def checkBuiltProgramMsgs(self, msgs):
+        self.assert_equal(msgs, "hello world\n")
+
+
+class DashXCPlusPlus_Case(DashXLanguageSpecific_Case):
+    """Test building a C++ program with -x."""
+
+    def languageName(self):
+      return "C++"
+
+    def languageGccName(self):
+      return "c++"
+
+    def libraries(self):
+      return "-lstdc++"
+
+    def headerSource(self):
+        return """
+#define MESSAGE "hello c++"
+"""
+
+    def source(self):
+        return """
+#import <iostream>
+#import "testhdr.h"
+
+int main(void) {
+    std::cout << MESSAGE << std::endl;
+    return 0;
+}
+"""
+
+    def checkBuiltProgramMsgs(self, msgs):
+        self.assert_equal(msgs, "hello c++\n")
+
+
+class DashXObjectiveC_Case(DashXLanguageSpecific_Case):
+    """Test building an Objective-C program with -x."""
+
+    def languageName(self):
+      return "Objective-C"
+
+    def languageGccName(self):
+      return "objective-c"
+
+    def headerSource(self):
+        return """
+#define MESSAGE "hello objective-c"
+"""
+
+    def source(self):
+        return """
+#import <stdio.h>
+#import "testhdr.h"
+
+/* TODO: use objective-c features. */
+
+int main(void) {
+    puts(MESSAGE);
+    return 0;
+}
+"""
+
+
+class DashXObjectiveCPlusPlus_Case(DashXLanguageSpecific_Case):
+    """Test building an Objective-C++ program with -x."""
+
+    def languageName(self):
+      return "Objective-C++"
+
+    def languageGccName(self):
+      return "objective-c++"
+
+    def libraries(self):
+      return "-lstdc++"
+
+    def headerSource(self):
+        return """
+#define MESSAGE "hello objective-c++"
+"""
+
+    def source(self):
+        return """
+#import <iostream>
+#import "testhdr.h"
+
+/* TODO: use Objective-C features. */
+
+int main(void) {
+    std::cout << MESSAGE << std::endl;
+    return 0;
+}
+"""
+
+    def checkBuiltProgramMsgs(self, msgs):
+        self.assert_equal(msgs, "hello objective-c++\n")
+
+
+class ClientCPPDashXLanguageSpecific_Case(DashXLanguageSpecific_Case):
+    """Abstract base class to test building programs with -x language that
+sets CPATH to force the CPP work do be done on the client, causing a remap
+of the -x when sending it over."""
+
+    def setup(self):
+        DashXLanguageSpecific_Case.setup(self)
+        # Something valid that won't expose us picking up different headers
+        # during the compile be accident.
+        os.environ['CPATH'] = './.'
+
+    def teardown(self):
+        del os.environ['CPATH']
+        DashXLanguageSpecific_Case.teardown(self)
+
+
+class ClientCPPDashXC_Case(ClientCPPDashXLanguageSpecific_Case):
+    """Test building a C program with -x and client side CPP."""
+
+    def languageName(self):
+      return "C"
+
+    def languageGccName(self):
+      return "c"
+
+    def headerSource(self):
+        return """
+#define HELLO_WORLD "hello world"
+"""
+
+    def source(self):
+        return """
+#include <stdio.h>
+#include "testhdr.h"
+int main(void) {
+    puts(HELLO_WORLD);
+    return 0;
+}
+"""
+
+    def checkBuiltProgramMsgs(self, msgs):
+        self.assert_equal(msgs, "hello world\n")
+
+
+class ClientCPPDashXCPlusPlus_Case(ClientCPPDashXLanguageSpecific_Case):
+    """Test building a C++ program with -x and client side CPP."""
+
+    def languageName(self):
+      return "C++"
+
+    def languageGccName(self):
+      return "c++"
+
+    def libraries(self):
+      return "-lstdc++"
+
+    def headerSource(self):
+        return """
+#define MESSAGE "hello c++"
+"""
+
+    def source(self):
+        return """
+#import <iostream>
+#import "testhdr.h"
+
+int main(void) {
+    std::cout << MESSAGE << std::endl;
+    return 0;
+}
+"""
+
+    def checkBuiltProgramMsgs(self, msgs):
+        self.assert_equal(msgs, "hello c++\n")
+
+
+class ClientCPPDashXObjectiveC_Case(ClientCPPDashXLanguageSpecific_Case):
+    """Test building an Objective-C program with -x and client side CPP."""
+
+    def languageName(self):
+      return "Objective-C"
+
+    def languageGccName(self):
+      return "objective-c"
+
+    def headerSource(self):
+        return """
+#define MESSAGE "hello objective-c"
+"""
+
+    def source(self):
+        return """
+#import <stdio.h>
+#import "testhdr.h"
+
+/* TODO: use objective-c features. */
+
+int main(void) {
+    puts(MESSAGE);
+    return 0;
+}
+"""
+
+
+class ClientCPPDashXObjectiveCPlusPlus_Case(ClientCPPDashXLanguageSpecific_Case):
+    """Test building an Objective-C++ program with -x and client side CPP."""
+
+    def languageName(self):
+      return "Objective-C++"
+
+    def languageGccName(self):
+      return "objective-c++"
 
     def libraries(self):
       return "-lstdc++"
@@ -2053,6 +2372,14 @@ tests = [
          CPlusPlus_Case,
          ObjectiveC_Case,
          ObjectiveCPlusPlus_Case,
+         DashXC_Case,
+         DashXCPlusPlus_Case,
+         DashXObjectiveC_Case,
+         DashXObjectiveCPlusPlus_Case,
+         ClientCPPDashXC_Case,
+         ClientCPPDashXCPlusPlus_Case,
+         ClientCPPDashXObjectiveC_Case,
+         ClientCPPDashXObjectiveCPlusPlus_Case,
          SystemIncludeDirectories_Case,
          CPlusPlus_SystemIncludeDirectories_Case,
          Gdb_Case,

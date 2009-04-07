@@ -58,13 +58,6 @@
  * @todo Perhaps make the argument parser driven by a data table.  (Would that
  * actually be clearer?)  Perhaps use regexps to recognize strings.
  *
- * @todo We could also detect options like "-x cpp-output" or "-x
- * assembler-with-cpp", because they should override language detection based
- * on extension.  I haven't seen anyone use them yet though.  In fact, since
- * we don't assemble remotely it is moot for the only reported case, the
- * Darwin C library.  We would also need to update the option when passing it
- * to the server.
- *
  * @todo Perhaps assume that assembly code will not use both #include and
  * .include, and therefore if we preprocess locally we can distribute the
  * compilation?  Assembling is so cheap that it's not necessarily worth
@@ -97,6 +90,24 @@ int dcc_argv_append(char **argv, char *toadd)
     argv[l] = toadd;
     argv[l+1] = NULL;           /* just make sure */
     return 0;
+}
+
+static const char *dcc_optx_ext_lookup(const char *language_name) {
+    if (!strcmp(language_name, "c") ||
+        !strcmp(language_name, "cpp-output")) {
+        return ".i";
+    } else if (!strcmp(language_name, "c++") ||
+               !strcmp(language_name, "c++-cpp-output")) {
+        return ".ii";
+    } else if (!strcmp(language_name, "objective-c") ||
+               !strcmp(language_name, "objc-cpp-output")) {
+        return ".mi";
+    } else if (!strcmp(language_name, "objective-c++") ||
+               !strcmp(language_name, "objc++-cpp-output")) {
+        return ".mii";
+    } else {
+        return NULL;
+    }
 }
 
 static void dcc_note_compiled(const char *input_file, const char *output_file)
@@ -132,7 +143,7 @@ int dcc_scan_args(char *argv[], char **input_file, char **output_file,
 {
     int seen_opt_c = 0, seen_opt_s = 0;
     int i;
-    char *a;
+    char *a, *optx_lang;
     int ret;
 
      /* allow for -o foo.o */
@@ -220,12 +231,32 @@ int dcc_scan_args(char *argv[], char **input_file, char **output_file,
             } else if (!strcmp(a, "-frepo")) {
                 rs_log_info("compiler will emit .rpo files; must be local");
                 return EXIT_DISTCC_FAILED;
-#ifndef XCODE_INTEGRATION
-            // TODO(tvl): finish this for real
-            } else if (str_startswith("-x", a)) {
-                rs_log_info("gcc's -x handling is complex; running locally");
+            } else if (!strcmp("-x", a)) {
+              optx_lang = argv[++i];
+              if (!optx_lang || !strlen(optx_lang)) {
+                rs_log_info("-x requires an argument; running locally");
                 return EXIT_DISTCC_FAILED;
-#endif
+              }
+              if (*input_file) {
+                rs_log_info("-x must precede source file; running locally");
+                return EXIT_DISTCC_FAILED;
+              }
+              if (dcc_optx_ext) {
+                rs_log_info("at most one -x supported; running locally");
+                return EXIT_DISTCC_FAILED;
+              }
+              dcc_optx_ext = dcc_optx_ext_lookup(optx_lang);
+              if (!dcc_optx_ext) {
+                rs_log_info("unsupported -x language; running locally");
+                return EXIT_DISTCC_FAILED;
+              }
+            } else if (str_startswith("-x", a)) {
+                /* Handling -xlanguage is possible, but it makes some of the
+                 * command rewriting (over in remote.c) much harder, so it
+                 * isn't supported at this time. */
+                rs_log_info("-xlanguage unsupported, use -x language instead; "
+                            "running locally");
+                return EXIT_DISTCC_FAILED;
             } else if (str_startswith("-dr", a)) {
                 rs_log_info("gcc's debug option %s may write extra files; "
                             "running locally", a);
