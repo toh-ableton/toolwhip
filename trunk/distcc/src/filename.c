@@ -178,7 +178,9 @@ const char * dcc_preproc_exten(const char *e)
     if (e[0] != '.')
         return NULL;
     e++;
-    if (!strcmp(e, "i") || !strcmp(e, "c")) {
+    if (dcc_optx_ext) {
+        return dcc_optx_ext;
+    } else if (!strcmp(e, "i") || !strcmp(e, "c")) {
         return ".i";
     } else if (!strcmp(e, "c") || !strcmp(e, "cc")
                || !strcmp(e, "cpp") || !strcmp(e, "cxx")

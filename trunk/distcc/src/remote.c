@@ -116,6 +116,48 @@ static int dcc_wait_for_cpp(pid_t cpp_pid,
     return 0;
 }
 
+/* Unlike dcc_copy_argv, this doesn't copy the strings */
+static int dcc_shallow_copy_argv(char **from, char ***out) {
+    char **b;
+    int l, i;
+
+    l = dcc_argv_len(from);
+    b = malloc((l+1) * (sizeof from[0]));
+    if (b == NULL) {
+        rs_log_error("failed to allocate copy of argv");
+        return EXIT_OUT_OF_MEMORY;
+    }
+    for (i = 0; i < l; i++)
+        b[i] = from[i];
+    b[l] = NULL;
+
+    *out = b;
+  
+    return 0;
+}
+
+static const char *dcc_map_optx_language_for_cpp(const char *language) {
+    /* These are the only types we allowed in arg.c */
+    
+    if (!strcmp(language, "c")) {
+        return "cpp-output";
+    } else if (!strcmp(language, "c++")) {
+        return "c++-cpp-output";
+    } else if (!strcmp(language, "objective-c")) {
+        return "objc-cpp-output";
+    } else if (!strcmp(language, "objective-c++")) {
+        return "objc++-cpp-output";
+    } else if (!strcmp(language, "cpp-output")
+               || !strcmp(language, "c++cpp-output")
+               || !strcmp(language, "objc-cpp-output")
+               || !strcmp(language, "objc++-cpp-output")) {
+        /* Preprocessed input is not preprocessed any further, so these
+         * modes can be passed straight through. */
+        return language;
+    } else {
+        return NULL;
+    }
+}
 
 /* Send a request across to the already-open server.
  *
@@ -127,7 +169,8 @@ dcc_send_header(int net_fd,
                 char **argv,
                 struct dcc_hostdef *host)
 {
-    int ret;
+    int ret, i;
+    char **new_argv = NULL;
 
     tcp_cork_sock(net_fd, 1);
 
@@ -135,12 +178,38 @@ dcc_send_header(int net_fd,
         return ret;
     if (host->cpp_where == DCC_CPP_ON_SERVER) {
         if ((ret = dcc_x_cwd(net_fd)))
-            return ret;
+            goto out_error;
+    } else if (host->cpp_where == DCC_CPP_ON_CLIENT) {
+        /* Fix up the -x argument in argv, if any, to account for preprocessing
+         * having been done. */
+        if ((ret = dcc_shallow_copy_argv(argv, &new_argv)))
+            goto out_error;
+        for (i = 0; new_argv[i]; i++) {
+            if (!strcmp(new_argv[i], "-x") && new_argv[i+1]) {
+                new_argv[i+1] =
+                    (char*)dcc_map_optx_language_for_cpp(new_argv[i+1]);
+                if (new_argv[i+1] == NULL) {
+                    rs_log_error("got unsupported -x language");
+                    ret = EXIT_DISTCC_FAILED;
+                    goto out_error;
+                }
+                break;
+            }
+        }
+        argv = new_argv;
     }
-    if ((ret = dcc_x_argv(net_fd, argv)))
-        return ret;
+    if ((ret = dcc_x_argv(net_fd, argv))) {
+        goto out_error;
+    }
 
+    if (new_argv)
+        free(new_argv);
     return 0;
+  
+  out_error:
+    if (new_argv)
+        free(new_argv);
+    return ret;
 }
 
 
