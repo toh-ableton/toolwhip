@@ -15,3 +15,4 @@ The pending tasks for the distcc work
      * -arch support in the include_server doesn't seem to do anything w/ what it collects
      * -arch support probably needs to support building >1 arch at a time like gcc does.
   * what happens if you pass already-preprocessed input like .i and .ii to the include server?
+  * double check DashONoSpace_Case since gcc -ofoo -c foo.c seems to work?
