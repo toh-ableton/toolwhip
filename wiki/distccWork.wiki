@@ -12,6 +12,7 @@ The pending tasks for the distcc work
   * reintegrate xcodedistcc advertisement via dns_sd (apple)/avahi (linux)
   * what happens if you pass already-preprocessed input like .i and .ii to the include server?
   * move the language bits into helper objects so we don't have to repeat so much in the tests
+  * figure out if isysroot needs to be prefixed when it goes over the wire to a server
   * in the link farm, we need to handle the dev tools install dir, and when recreating the links on the other machine, make sure they are done as that machine needs them.
 
 done:
