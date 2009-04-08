@@ -6,6 +6,9 @@ The pending tasks for the distcc work
      * include_server needs to know that -x and -isysroot can alter the set of default system search directories.  CompilerDefaults' self.system_dirs_default already seems to accept language as a dimension for variance, this can probably be tied to -x if it's not already.  -isysroot should be added as an additional dimension.
   * split out include dirs from framework dirs
   * see if we need to beef up -F support in the include server
+     * interleave them with -I
+     * teach the include server to look in the Frameworks's Headers dir.
+  * -iheader/-iframework need to match like -I/-F
   * reintegrate xcodedistcc advertisement via dns_sd (apple)/avahi (linux)
   * what happens if you pass already-preprocessed input like .i and .ii to the include server?
   * move the language bits into helper objects so we don't have to repeat so much in the tests
