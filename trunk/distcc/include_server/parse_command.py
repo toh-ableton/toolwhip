@@ -55,7 +55,6 @@ class ParseState:
     self.sysroot = None
     self.output_file = None
     self.iprefix = ""
-    self.arch = None
     self.Dopts = []
 
   def set_nostdinc(self): self.nostdinc = True
@@ -64,7 +63,6 @@ class ParseState:
   def set_sysroot(self, x): self.sysroot = x
   def set_outputfile(self, x): self.output_file = x
   def set_iprefix(self, x): self.iprefix = x
-  def set_arch(self, x): self.arch = x
 
 def _SplitMacroArg(arg):
   """Split an arg as found in -Darg
@@ -98,7 +96,7 @@ CPP_OPTIONS_MAYBE_TWO_WORDS = {
   '-MF':            lambda ps, arg: None,
   '-MT':            lambda ps, arg: None,
   '-MQ':            lambda ps, arg: None,
-  '-arch':          lambda ps, arg: ps.set_arch(arg),
+  '-arch':          lambda ps, arg: None,
   '-include':       lambda ps, arg: ps.include_files.append(arg),
   '-imacros':       lambda ps, arg: ps.include_files.append(arg),
   '-idirafter':     lambda ps, arg: ps.after_system_dirs.append(arg),
