@@ -983,6 +983,22 @@ int main(void) {
         self.assert_equal(msgs, "hello world\n")
 
 
+class PrefixInclude_Case(CompileHello_Case):
+    """Test the support for -include."""
+
+    def source(self):
+        return """
+#include <stdio.h>
+int main(void) {
+    puts(HELLO_WORLD);
+    return 0;
+}
+"""
+
+    def compileOpts(self):
+        return "-include '%s'" % ( self.headerFilename() )
+
+
 class LanguageSpecific_Case(Compilation_Case):
     """Abstract base class to test building non-C programs."""
     def runtest(self):
@@ -2382,6 +2398,7 @@ tests = [
          ClientCPPDashXObjectiveCPlusPlus_Case,
          SystemIncludeDirectories_Case,
          CPlusPlus_SystemIncludeDirectories_Case,
+         PrefixInclude_Case,
          Gdb_Case,
          GdbOpt1_Case,
          GdbOpt2_Case,
