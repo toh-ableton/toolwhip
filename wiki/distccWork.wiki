@@ -8,7 +8,6 @@ The pending tasks for the distcc work
   * see if we need to beef up -F support in the include server
   * reintegrate xcodedistcc advertisement via dns_sd (apple)/avahi (linux)
   * what happens if you pass already-preprocessed input like .i and .ii to the include server?
-  * double check DashONoSpace_Case since gcc -ofoo -c foo.c seems to work?
   * move the language bits into helper objects so we don't have to repeat so much in the tests
   * -iframework like -isystem
 
@@ -20,3 +19,4 @@ done:
      * -arch support in the include_server doesn't seem to do anything w/ what it collects
      * -arch support probably needs to support building >1 arch at a time like gcc does.
   * -include - already worked, added test case
+  * double check DashONoSpace_Case since gcc -ofoo -c foo.c seems to work?
