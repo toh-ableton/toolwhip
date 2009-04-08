@@ -29,3 +29,6 @@ done:
 
 Things to point out to apple
   * the gcc version must also bump if the sdks change in any way due to how system headers are moved over the wire, they need to match between all machines so they see the same headers.
+
+Things to point out to distcc
+  * The include_server requirement that client_root contain exactly three components is ludicrous.  Rather than having distcc strip off exactly three components from the beginnings of paths to see inside the client root, the include_server should communicate its client_root back to distcc, so that distcc knows exactly what to strip off.
