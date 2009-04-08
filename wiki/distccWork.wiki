@@ -20,3 +20,8 @@ done:
      * -arch support probably needs to support building >1 arch at a time like gcc does.
   * -include - already worked, added test case
   * double check DashONoSpace_Case since gcc -ofoo -c foo.c seems to work?
+
+
+
+Things to point out to apple
+  * the gcc version must also bump if the sdks change in any way due to how system headers are moved over the wire, they need to match between all machines so they see the same headers.
