@@ -2,7 +2,6 @@
 
 The pending tasks for the distcc work
   * finish out --hostinfo - mark
-  * -include
   * -isysroot
      * include_server needs to know that -x and -isysroot can alter the set of default system search directories.  CompilerDefaults' self.system_dirs_default already seems to accept language as a dimension for variance, this can probably be tied to -x if it's not already.  -isysroot should be added as an additional dimension.
   * split out include dirs from framework dirs
@@ -20,3 +19,4 @@ done:
   * probably don't need to do anything with these except stop collecting -arch:
      * -arch support in the include_server doesn't seem to do anything w/ what it collects
      * -arch support probably needs to support building >1 arch at a time like gcc does.
+  * -include - already worked, added test case
