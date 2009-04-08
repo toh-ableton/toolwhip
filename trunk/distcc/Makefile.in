@@ -62,7 +62,8 @@ include_server_builddir = $(builddir)/_include_server
 
 # These must be done from here, not from autoconf, because they can 
 # contain variable expansions written in Make syntax.  Ew.
-DIR_DEFS = -DSYSCONFDIR="\"${sysconfdir}\"" -DPKGDATADIR="\"${pkgdatadir}\""
+DIR_DEFS = -DSYSCONFDIR="\"${sysconfdir}\"" -DPKGDATADIR="\"${pkgdatadir}\"" \
+           -DPREFIXDIR="\"${prefix}\""
 
 # arguments to pkgconfig
 GNOME_PACKAGES = @GNOME_PACKAGES@
@@ -268,6 +269,7 @@ distccd_obj = src/access.o						\
 	src/stringmap.o							\
 	src/serve.o src/setuid.o src/srvnet.o src/srvrpc.o src/state.o	\
 	src/stats.o							\
+	src/xci_versinfo.o						\
 	src/fix_debug_info.o						\
 	@ZEROCONF_DISTCCD_OBJS@						\
 	$(common_obj) @BUILD_POPT@

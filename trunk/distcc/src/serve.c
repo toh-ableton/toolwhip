@@ -62,6 +62,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
+#include <string.h>
 #include <time.h>
 
 #include <sys/stat.h>
@@ -90,6 +91,10 @@
 #include "stringmap.h"
 #include "dotd.h"
 #include "fix_debug_info.h"
+
+#ifdef XCODE_INTEGRATION
+  #include "xci_versinfo.h"
+#endif
 
 /**
  * We copy all serious distccd messages to this file, as well as sending the
@@ -796,20 +801,88 @@ out_cleanup:
 #ifdef XCODE_INTEGRATION
 /**
  * Send host information, including hardware information, the OS version, and
- * compiler versions.
- */
+ * compiler versions.  Information that can't be collected due to errors is
+ * omitted from the report.
+ *
+ * Errors that occur for reasons other than failure to collect data are
+ * treated as failures and result in this function exiting nonzero, and
+ * perhaps not transmitting the HINF block.  In that case, the connection will
+ * be closed after this function returns anyway, so the error will
+ * unambiguously result in the client requesting host info to fail.  This is
+ * the desired behavior.
+ **/
 int dcc_send_host_info(int out_fd)
 {
-    int ret;
-    char msg[256];
-    int ncpus = 0;
+    static const char sys_key[] = "SYSTEM=";
+    static const char cpus_key[] = "CPUS=";
+    static const char compiler_key[] = "COMPILER=";
+    int len = 0, pos = 0, ncpus, ret;
+    char *info = NULL;
+    char **compilers = NULL, **compiler;
 
-    dcc_ncpus(&ncpus);
+    /* Allocate 20 bytes for each integer value, so that even if they're
+     * 64-bit integers, there will be enough room to store them in decimal.
+     * Using sizeof on each key includes the key's terminating NUL, so this
+     * doesn't need to account separately for each line's terminating newline.
+     */
+    static const int int_decimal_len = 20;
 
+    len += sizeof(sys_key) + strlen("Something");
+    len += sizeof(cpus_key) + int_decimal_len;
+
+    compilers = dcc_xci_get_all_compiler_versions();
+    if (compilers) {
+        for (compiler = compilers; *compiler; ++compiler)
+            len += sizeof(compiler_key) + strlen(*compiler);
+    }
+
+    /* Leave room for a NUL terminator at the end of the entire string. */
+    ++len;
+
+    info = malloc(len);
+    if (!info) {
+        rs_log_error("malloc(%d) failed: %s", len, strerror(errno));
+        goto out_error;
+    }
+    info[pos] = '\0';
+
+    pos += snprintf(info + pos, len - pos, "%s%s\n", sys_key, "Something");
+    if (pos >= len)
+        goto out_error_info_size;
+
+    if (dcc_ncpus(&ncpus) == 0) {
+        pos += snprintf(info + pos, len - pos, "%s%d\n", cpus_key, ncpus);
+        if (pos >= len)
+            goto out_error_info_size;
+    }
+
+    if (compilers) {
+        for (compiler = compilers; *compiler; ++compiler) {
+            pos += snprintf(info + pos, len - pos, "%s%s\n",
+                            compiler_key, *compiler);
+            if (pos >= len)
+                goto out_error_info_size;
+        }
+        free(compilers);
+        compilers = NULL;
+    }
+ 
     /* TODO(mark): Finish. */
-    snprintf(msg, sizeof(msg), "SYSTEM=Something\nCPUS=%d\n", ncpus);
-    ret = dcc_x_token_string(out_fd, "HINF", msg);
+    ret = dcc_x_token_string(out_fd, "HINF", info);
+
+    free(info);
 
     return ret;
+
+  out_error_info_size:
+    rs_log_error("info buffer of size %d is too small", len);
+
+  out_error:
+    if (info)
+        free(info);
+    if (compilers)
+        free(compilers);
+
+    return EXIT_OUT_OF_MEMORY;
 }
 #endif /* XCODE_INTEGRATION */
