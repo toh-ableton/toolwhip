@@ -5,17 +5,18 @@ The pending tasks for the distcc work
   * -isysroot/-sysroot
      * distcc cmdline needs to make sure we only get one of these at a time
      * index_server needs to collect it and use it when collecting compiler defaults
-        * add another dimension for roots or combine them w/ the compiler or arch to build the key for lookup.
-     * if distcc is doing cpp on the server
-        * strip the sysroot argument because the link serve.c:tweak_arguments_for_server will prefix all the flags for us and we don't want all our absolute paths rooted again
-     * if distcc is doing cpp on client
-        * strip.c:dcc_strip_local_args needs to remove the sysroot since  it's not needed
+        * add another dimension for (i)sysroots or combine them w/ the compiler or arch to build the key for lookup.
+     * if distcc is doing cpp on the server:
+        * strip the sysroot argument because serve.c:tweak_arguments_for_server will prefix all the flags for us and we don't want all our absolute paths rooted again
+     * if distcc is doing cpp on the client
+        * strip.c:dcc_strip_local_args needs to remove the sysroot since it's not needed during the compile
      * open issues:
-        * by appling sysroots for sdks, we need to deal w/ the xcode developer dir in what we send over the wire, it's not clear how to do this yet.  maybe there is something in the gcc install location support?
-  * split out include dirs from framework dirs
+        * by applying (i)sysroot for sdks, we need to deal w/ the xcode developer dir in what we send over the wire, it's not clear how to do this yet.  maybe there is something in the gcc install location support?
+           * maybe when sending/receiving the link we can do a simple string replace of %XCODEDEVDIR% in what goes on the wire?  would we never need to support a server that wasn't built with xcode integration enabled?
   * see if we need to beef up -F support in the include server
      * interleave them with -I
      * teach the include server to look in the Frameworks's Headers dir.
+     * question: are we ok with the overhead for frameworks on all platforms since it's in the include_server and we can ifdef it?
   * -iheader/-iframework need to match like -I/-F
   * reintegrate xcodedistcc advertisement via dns_sd (apple)/avahi (linux)
   * what happens if you pass already-preprocessed input like .i and .ii to the include server?
