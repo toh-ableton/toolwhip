@@ -834,9 +834,14 @@ out_cleanup:
 int dcc_send_host_info(int out_fd)
 {
     static const char sys_key[] = "SYSTEM=";
-    static const char cpus_key[] = "CPUS=";
+    static const char distcc_key_and_value[] = "DISTCC=" PACKAGE_VERSION;
     static const char compiler_key[] = "COMPILER=";
+    static const char cpus_key[] = "CPUS=";
+    static const char cpuspeed_key[] = "CPUSPEED=";
+    static const char jobs_key[] = "JOBS=";
+    static const char priority_key[] = "PRIORITY=";
     int len = 0, pos = 0, ncpus, ret;
+    unsigned long long cpuspeed;
     char *info = NULL;
     char **compilers = NULL, **compiler;
 
@@ -848,13 +853,18 @@ int dcc_send_host_info(int out_fd)
     static const int int_decimal_len = 20;
 
     len += sizeof(sys_key) + strlen("Something");
-    len += sizeof(cpus_key) + int_decimal_len;
+    len += sizeof(distcc_key_and_value);
 
     compilers = dcc_xci_get_all_compiler_versions();
     if (compilers) {
         for (compiler = compilers; *compiler; ++compiler)
             len += sizeof(compiler_key) + strlen(*compiler);
     }
+
+    len += sizeof(cpus_key) + int_decimal_len;
+    len += sizeof(cpuspeed_key) + int_decimal_len;
+    len += sizeof(jobs_key) + int_decimal_len;
+    len += sizeof(priority_key) + int_decimal_len;
 
     /* Leave room for a NUL terminator at the end of the entire string. */
     ++len;
@@ -870,11 +880,9 @@ int dcc_send_host_info(int out_fd)
     if (pos >= len)
         goto out_error_info_size;
 
-    if (dcc_ncpus(&ncpus) == 0) {
-        pos += snprintf(info + pos, len - pos, "%s%d\n", cpus_key, ncpus);
-        if (pos >= len)
-            goto out_error_info_size;
-    }
+    pos += snprintf(info + pos, len - pos, "%s\n", distcc_key_and_value);
+    if (pos >= len)
+        goto out_error_info_size;
 
     if (compilers) {
         for (compiler = compilers; *compiler; ++compiler) {
@@ -887,7 +895,28 @@ int dcc_send_host_info(int out_fd)
         compilers = NULL;
     }
  
-    /* TODO(mark): Finish. */
+    if (dcc_ncpus(&ncpus) == 0) {
+        pos += snprintf(info + pos, len - pos, "%s%d\n", cpus_key, ncpus);
+        if (pos >= len)
+            goto out_error_info_size;
+    }
+
+    if (dcc_cpuspeed(&cpuspeed) == 0) {
+        pos += snprintf(info + pos, len - pos, "%s%llu\n", cpuspeed_key,
+                        cpuspeed);
+        if (pos >= len)
+            goto out_error_info_size;
+    }
+
+    pos += snprintf(info + pos, len - pos, "%s%d\n", jobs_key, dcc_max_kids);
+    if (pos >= len)
+        goto out_error_info_size;
+
+    pos += snprintf(info + pos, len - pos, "%s%d\n", priority_key,
+                    arg_priority);
+    if (pos >= len)
+        goto out_error_info_size;
+
     ret = dcc_x_token_string(out_fd, "HINF", info);
 
     free(info);

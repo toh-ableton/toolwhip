@@ -106,6 +106,15 @@ enum {
 int opt_zeroconf = 0;
 #endif
 
+#ifdef XCODE_INTEGRATION
+/* The priority of this distccd server relative to others.  This is set by
+ * the --priority argument.  It is not used by distcc, but it is used by
+ * Xcode when sorting the hosts in DISTCC_HOSTS.  The Xcode UI maps
+ * "low" to 20, "medium" to 10, and "high" to 0 when configuring launchd to
+ * start distccd. */
+int arg_priority = 10;
+#endif
+
 const struct poptOption options[] = {
     { "allow", 'a',      POPT_ARG_STRING, 0, 'a', 0, 0 },
     { "jobs", 'j',       POPT_ARG_INT, &arg_max_jobs, 'j', 0, 0 },
@@ -132,6 +141,9 @@ const struct poptOption options[] = {
     { "stats-port", 0,   POPT_ARG_INT, &arg_stats_port, 0, 0, 0 },
 #ifdef HAVE_AVAHI
     { "zeroconf", 0,     POPT_ARG_NONE, &opt_zeroconf, 0, 0, 0 },
+#endif
+#ifdef XCODE_INTEGRATION
+    { "priority", 0,     POPT_ARG_INT, &arg_priority, 0, 0, 0 },
 #endif
     { 0, 0, 0, 0, 0, 0, 0 }
 };
@@ -160,6 +172,9 @@ static void distccd_show_usage(void)
 "    --stats-port PORT          TCP port to listen on for statistics requests\n"
 #ifdef HAVE_AVAHI
 "    --zeroconf                 register via mDNS/DNS-SD\n"
+#endif
+#ifdef XCODE_INTEGRATION
+"    --priority                 Xcode selection priority (lower preferred)\n"
 #endif
 "  Debug and trace:\n"
 "    --log-level=LEVEL          set detail level for log file\n"

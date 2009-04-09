@@ -152,3 +152,63 @@ int dcc_ncpus(int *ncpus)
     return 0;
 }
 #endif
+
+#ifdef XCODE_INTEGRATION
+
+/**
+ * Obtain the CPU speed in Hz.
+ **/
+int dcc_cpuspeed(unsigned long long *speed)
+{
+
+#if defined(__APPLE__)
+
+    size_t len = sizeof(*speed);
+    if (sysctlbyname("hw.cpufrequency", speed, &len, NULL, 0) == 0)
+        return 0;
+
+    rs_log_error("sysctlbyname(\"hw.cpufrequency\") failed: %s",
+                 strerror(errno));
+    *speed = 1;
+    return EXIT_DISTCC_FAILED;
+
+#elif defined(linux)
+
+    /* This fetches the maximum speed for cpu0, on the assumption that all
+     * CPUs in the system are the same speed, and the maximum speed is the
+     * speed that the CPU will run at if needed.  The maximum speed may be
+     * greater than the current speed due to scaling. */
+    FILE *f;
+    long long khz;
+    int rv;
+
+    f = fopen("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq", "r");
+    if (!f) {
+        rs_log_error("open cpuinfo_max_freq failed: %s", strerror(errno));
+        *speed = 1;
+        return EXIT_DISTCC_FAILED;
+    }
+
+    rv = fscanf(f, "%lld", &khz);
+    fclose(f);
+
+    if (rv != 1 || khz <= 0) {
+        rs_log_error("cpuinfo_max_freq makes no sense");
+        *speed = 1;
+        return EXIT_DISTCC_FAILED;
+    }
+
+    *speed = khz * 1000;
+    return 0;
+
+#else /* linux */
+
+#warning "Please port this function"
+    *speed = 1;
+    return EXIT_DISTCC_FAILED;
+
+#endif /* linux */
+
+}
+
+#endif /* XCODE_INTEGRATION */
