@@ -467,7 +467,6 @@ static int dcc_convert_mt_to_dotd_target(char **argv, char **dotd_target)
 
 
 /**
- * Add -MMD and -MF to get a .d file.
  * Find what the dotd target should be (if any).
  * Prepend @p root_dir to every command
  * line argument that refers to a file/dir by an absolute name.
@@ -476,19 +475,30 @@ static int tweak_arguments_for_server(char **argv,
                                       const char *root_dir,
                                       const char *deps_fname,
                                       char **dotd_target,
-                                      char ***tweaked_argv)
+                                      char ***tweaked_argv,
+                                      int *send_back_dotd)
 {
-    int ret;
+    int ret, parsed_needs_dotd = 0, parsed_sets_dotd_target = 0;
+    char *parsed_deps_fname = NULL, *parsed_dotd_target = NULL;
     *dotd_target = 0;
     if ((ret = dcc_copy_argv(argv, tweaked_argv, 3)))
-      return 1;
+        return 1;
 
-    if ((ret = dcc_convert_mt_to_dotd_target(*tweaked_argv, dotd_target)))
-      return 1;
+    dcc_get_dotd_info(argv, &parsed_deps_fname, &parsed_needs_dotd,
+                      &parsed_sets_dotd_target, &parsed_dotd_target);
+    if (parsed_deps_fname)
+        free(parsed_deps_fname);
+  
+    /* If the client wanted a deps file, tweak it to work on the server. */
+    if (parsed_needs_dotd) {
+        if ((ret = dcc_convert_mt_to_dotd_target(*tweaked_argv, dotd_target)))
+            return 1;
 
-    dcc_argv_append(*tweaked_argv, strdup("-MMD"));
-    dcc_argv_append(*tweaked_argv, strdup("-MF"));
-    dcc_argv_append(*tweaked_argv, strdup(deps_fname));
+        dcc_argv_append(*tweaked_argv, strdup("-MMD"));
+        dcc_argv_append(*tweaked_argv, strdup("-MF"));
+        dcc_argv_append(*tweaked_argv, strdup(deps_fname));
+    }
+    *send_back_dotd = parsed_needs_dotd;
 
     tweak_include_arguments_for_server(*tweaked_argv, root_dir);
     tweak_input_argument_for_server(*tweaked_argv, root_dir);
@@ -559,6 +569,7 @@ static int dcc_run_job(int in_fd,
     enum dcc_cpp_where cpp_where;
     char *server_cwd = NULL;
     char *client_cwd = NULL;
+    int send_back_dotd = 0;
 
     gettimeofday(&start, NULL);
 
@@ -640,7 +651,8 @@ static int dcc_run_job(int in_fd,
         if (dcc_r_many_files(in_fd, temp_dir, compr)
             || dcc_set_output(argv, temp_o)
             || tweak_arguments_for_server(argv, temp_dir, deps_fname,
-                                          &dotd_target, &tweaked_argv))
+                                          &dotd_target, &tweaked_argv,
+                                          &send_back_dotd))
             goto out_cleanup;
         /* Repeat the switcharoo trick a few lines above. */
         dcc_free_argv(argv);
@@ -700,15 +712,23 @@ static int dcc_run_job(int in_fd,
             goto out_cleanup;
 
         if (cpp_where == DCC_CPP_ON_SERVER) {
-            char *cleaned_dotd;
-            ret = dcc_cleanup_dotd(deps_fname,
-                                   &cleaned_dotd,
-                                   temp_dir,
-                                   dotd_target ? dotd_target : orig_output,
-                                   temp_o);
-            if (ret) goto out_cleanup;
-            ret = dcc_x_file(out_fd, cleaned_dotd, "DOTD", compr, NULL);
-            free(cleaned_dotd);
+            if (send_back_dotd) {
+                char *cleaned_dotd;
+                ret = dcc_cleanup_dotd(deps_fname,
+                                       &cleaned_dotd,
+                                       temp_dir,
+                                       dotd_target ? dotd_target : orig_output,
+                                       temp_o);
+                if (ret) goto out_cleanup;
+                ret = dcc_x_file(out_fd, cleaned_dotd, "DOTD", compr, NULL);
+                free(cleaned_dotd);
+            } else {
+                /* The current client always expects a DOTD token, so we have
+                 * to send it one indicating size 0 so we don't cause a "wire"
+                 * change which would make some client/server mixes fail.
+                 */
+                ret = dcc_x_token_int(out_fd, "DOTD", 0);
+            }
         }
 
         job_result = STATS_COMPILE_OK;
