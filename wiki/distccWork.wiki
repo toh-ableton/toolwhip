@@ -2,8 +2,16 @@
 
 The pending tasks for the distcc work
   * finish up --hostinfo - mark
-  * -isysroot
-     * include_server needs to know that -x and -isysroot can alter the set of default system search directories.  CompilerDefaults' self.system_dirs_default already seems to accept language as a dimension for variance, this can probably be tied to -x if it's not already.  -isysroot should be added as an additional dimension.
+  * -isysroot/-sysroot
+     * distcc cmdline needs to make sure we only get one of these at a time
+     * index_server needs to collect it and use it when collecting compiler defaults
+        * add another dimension for roots or combine them w/ the compiler or arch to build the key for lookup.
+     * if distcc is doing cpp on the server
+        * strip the sysroot argument because the link serve.c:tweak_arguments_for_server will prefix all the flags for us and we don't want all our absolute paths rooted again
+     * if distcc is doing cpp on client
+        * strip.c:dcc_strip_local_args needs to remove the sysroot since  it's not needed
+     * open issues:
+        * by appling sysroots for sdks, we need to deal w/ the xcode developer dir in what we send over the wire, it's not clear how to do this yet.  maybe there is something in the gcc install location support?
   * split out include dirs from framework dirs
   * see if we need to beef up -F support in the include server
      * interleave them with -I
@@ -12,8 +20,7 @@ The pending tasks for the distcc work
   * reintegrate xcodedistcc advertisement via dns_sd (apple)/avahi (linux)
   * what happens if you pass already-preprocessed input like .i and .ii to the include server?
   * move the language bits into helper objects so we don't have to repeat so much in the tests
-  * figure out if isysroot needs to be prefixed when it goes over the wire to a server
-  * in the link farm, we need to handle the dev tools install dir, and when recreating the links on the other machine, make sure they are done as that machine needs them.
+  * in the symlink farm, we need to handle the dev tools install dir, and when recreating the links on the other machine, make sure they are done as that machine needs them. see the open issue nder isysroot/sysroot
   * remove GNU Make-ism (filter-out) from Makefile, move the logic into configure.  Make -DXCODE_INTEGRATION something that configure knows how to set.
 
 done:
