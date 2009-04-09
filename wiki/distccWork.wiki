@@ -24,6 +24,7 @@ done:
      * -arch support probably needs to support building >1 arch at a time like gcc does.
   * -include - already worked, added test case
   * double check DashONoSpace_Case since gcc -ofoo -c foo.c seems to work?
+  * don't force a .d file to be created on the server since it can conflict w/ more then one -arch option.
 
 
 
