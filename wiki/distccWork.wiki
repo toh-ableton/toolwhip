@@ -2,8 +2,8 @@
 
 The pending tasks for the distcc work
   * finish up --hostinfo - mark
-  * -isysroot/-sysroot
-     * distcc cmdline needs to make sure we only get one of these at a time
+  * -isysroot/--sysroot
+     * distcc cmdline needs to make sure we only get one of these at a time (mm note: gcc actually accepts multiple -isysroot but only honors the last one.  gcc honors -isysroot over --sysroot for include path purposes regardless of where they appear on the command line relative to one another.)
      * index_server needs to collect it and use it when collecting compiler defaults
         * add another dimension for (i)sysroots or combine them w/ the compiler or arch to build the key for lookup.
      * if distcc is doing cpp on the server:
