@@ -29,7 +29,9 @@
 #ifndef DISTCC_MACH_O_STUB_H_
 #define DISTCC_MACH_O_STUB_H_
 
+#ifdef HAVE_STDINT_H
 #include <stdint.h>
+#endif
 
 /* mach-o/fat.h
  * http://www.opensource.apple.com/darwinsource/DevToolsOct2008/cctools-698.1/include/mach-o/fat.h */

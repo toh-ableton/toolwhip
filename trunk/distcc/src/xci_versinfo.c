@@ -427,8 +427,10 @@ static dcc_xci_compiler_info *dcc_xci_parse_distcc_compilers(void) {
                 goto out_error;
             }
 
-            /* The rest of the line up to the newline is the version string. */
-            version += sizeof(version_pattern) - 1;
+            /* The entire line is the version string.  Move past the newline
+             * at the beginning of version_pattern and take everything up
+             * to the next newline. */
+            ++version;
             char *version_end = strchr(version, '\n');
             if (!version_end) {
                 rs_log_error("could not determine end of version for \"%s\"",

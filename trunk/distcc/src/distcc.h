@@ -141,6 +141,9 @@ int dcc_parse_hosts(const char *where, const char *source_name,
 
 /* ncpu.c */
 int dcc_ncpus(int *);
+#ifdef XCODE_INTEGRATION
+int dcc_cpuspeed(unsigned long long *);
+#endif
 
 /* ssh.c */
 int dcc_ssh_connect(char *ssh_cmd, char *user,

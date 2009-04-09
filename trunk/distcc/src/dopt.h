@@ -47,3 +47,7 @@ extern int opt_niceness;
 #ifdef HAVE_AVAHI
 extern int opt_zeroconf;
 #endif
+
+#ifdef XCODE_INTEGRATION
+extern int arg_priority;
+#endif
