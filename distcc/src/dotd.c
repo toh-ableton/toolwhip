@@ -278,6 +278,8 @@ int dcc_get_dotd_info(char **argv, char **dotd_fname,
           }
           free(tmp_dotd_fname);
         }
+        if (new_args)
+            dcc_free_argv(new_args);
         return 0;
     }
 }
