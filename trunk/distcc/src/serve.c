@@ -619,6 +619,11 @@ static int dcc_run_job(int in_fd,
             /* Something went wrong, so send DOTO 0 */
             dcc_x_token_int(out_fd, "DOTO", 0);
         }
+
+        /* Uncork now, since we're jumping straight to out_cleanup and
+         * skipping over the uncork that happens when a real job is done. */
+        tcp_cork_sock(out_fd, 0);
+
         goto out_cleanup;
     }
 #endif /* XCODE_INTEGRATION */

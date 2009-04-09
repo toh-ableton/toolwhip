@@ -432,6 +432,11 @@ int dcc_show_host_info(char *host)
         goto out;
     }
 
+    /* Pop the cork placed by dcc_send_header.  Normally the cork gets
+     * popped in dcc_compile_remote, but that function won't be called
+     * when running --host-info. */
+    tcp_cork_sock(to_net_fd, 0);
+
     if ((ret = dcc_r_result_header(from_net_fd, hostdef->protover)))
         goto out; /* dcc_r_result_header logs its own error on failure */
 
