@@ -185,7 +185,7 @@ static void *mmap_file(const char *path, int *p_fd, struct stat *st) {
     return NULL;
   }
 
-#ifdef HAVE_SYS_MMAP_H
+#ifdef HAVE_MMAP
   base = mmap(NULL, st->st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (base == MAP_FAILED) {
     rs_log_error("mmap of file '%s' failed: %s", path, strerror(errno));
@@ -201,6 +201,7 @@ static void *mmap_file(const char *path, int *p_fd, struct stat *st) {
   }
   errno = 0;
   if (read(fd, base, st->st_size) != st->st_size) {
+    /* TODO: read in a loop that handles EINTR. */
     rs_log_error("can't read %ld bytes from %s: %s", (long) st->st_size, path,
                  strerror(errno));
     close(fd);
@@ -214,7 +215,7 @@ static void *mmap_file(const char *path, int *p_fd, struct stat *st) {
 static int munmap_file(void *base, const char *path, int fd,
                 const struct stat *st) {
   int status = 0;
-#ifdef HAVE_SYS_MMAP_H
+#ifdef HAVE_MMAP
   if (munmap(base, st->st_size) != 0) {
     rs_log_error("munmap of file '%s' failed: %s", path, strerror(errno));
     status = 1;
@@ -225,6 +226,7 @@ static int munmap_file(void *base, const char *path, int fd,
     rs_log_error("can't seek to start of %s: %s", path, strerror(errno));
     status = 1;
   } else if (write(fd, base, st->st_size) != st->st_size) {
+    /* TODO: write in a loop that handles EINTR. */
     rs_log_error("can't write %ld bytes to %s: %s", (long) st->st_size, path,
                  strerror(errno));
     status = 1;
