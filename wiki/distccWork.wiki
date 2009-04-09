@@ -1,7 +1,7 @@
 #summary The pending tasks to be done for distcc
 
 The pending tasks for the distcc work
-  * finish out --hostinfo - mark
+  * finish up --hostinfo - mark
   * -isysroot
      * include_server needs to know that -x and -isysroot can alter the set of default system search directories.  CompilerDefaults' self.system_dirs_default already seems to accept language as a dimension for variance, this can probably be tied to -x if it's not already.  -isysroot should be added as an additional dimension.
   * split out include dirs from framework dirs
@@ -14,6 +14,7 @@ The pending tasks for the distcc work
   * move the language bits into helper objects so we don't have to repeat so much in the tests
   * figure out if isysroot needs to be prefixed when it goes over the wire to a server
   * in the link farm, we need to handle the dev tools install dir, and when recreating the links on the other machine, make sure they are done as that machine needs them.
+  * remove GNU Make-ism (filter-out) from Makefile, move the logic into configure.  Make -DXCODE_INTEGRATION something that configure knows how to set.
 
 done:
   * -x support
@@ -25,8 +26,8 @@ done:
   * -include - already worked, added test case
   * double check DashONoSpace_Case since gcc -ofoo -c foo.c seems to work?
   * don't force a .d file to be created on the server since it can conflict w/ more then one -arch option.
-
-
+  * --hostinfo compiler version reporting
+  * fix paths in debug info for Mach-O files
 
 Things to point out to apple
   * the gcc version must also bump if the sdks change in any way due to how system headers are moved over the wire, they need to match between all machines so they see the same headers.
