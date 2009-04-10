@@ -271,7 +271,7 @@ distccd_obj = src/access.o						\
 	src/stringmap.o							\
 	src/serve.o src/setuid.o src/srvnet.o src/srvrpc.o src/state.o	\
 	src/stats.o							\
-	src/xci_versinfo.o						\
+	src/xci_utils.o src/xci_versinfo.o				\
 	src/fix_debug_info.o						\
 	@ZEROCONF_DISTCCD_OBJS@						\
 	$(common_obj) @BUILD_POPT@
@@ -367,8 +367,10 @@ HEADERS = src/stats.h							\
 	src/exec.h src/lock.h src/where.h src/srvnet.h			\
 	src/rslave.h							\
 	src/dotd.h src/include_server_if.h				\
-	src/emaillog.h \
-	src/va_copy.h \
+	src/emaillog.h							\
+	src/va_copy.h							\
+	src/xci_utils.h							\
+	src/xci_versinfo.h						\
 	src/zeroconf.h
 
 conf_dir = packaging/RedHat/conf
