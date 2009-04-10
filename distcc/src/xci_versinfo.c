@@ -34,7 +34,9 @@
 #include <sys/stat.h>
 #include <sys/utsname.h>
 
+#include "daemon.h"
 #include "distcc.h"
+#include "dopt.h"
 #include "trace.h"
 #include "util.h"
 #include "xci_versinfo.h"
@@ -171,7 +173,7 @@ static char *dcc_xci_run_command(const char *command_line) {
  *
  * Returns NULL on failure.
  **/
-char *dcc_xci_get_system_version(void) {
+static const char *dcc_xci_get_system_version(void) {
     static const char product_line_match[] = "ProductVersion:";
     static const char build_line_match[] = "BuildVersion:";
     struct utsname info;
@@ -468,7 +470,7 @@ static char *dcc_xci_path_in_prefix(const char *path) {
  *
  * On failure, returns NULL.
  **/
-static dcc_xci_compiler_info *dcc_xci_parse_distcc_compilers(void) {
+static const dcc_xci_compiler_info *dcc_xci_parse_distcc_compilers(void) {
     static int parsed_compilers = 0;
     static dcc_xci_compiler_info *compilers = NULL;
     char *compilers_path = NULL;
@@ -677,9 +679,8 @@ static dcc_xci_compiler_info *dcc_xci_parse_distcc_compilers(void) {
  * it is possible for NULL to be returned when there are no compilers
  * available.
  **/
-char **dcc_xci_get_all_compiler_versions(void) {
-    dcc_xci_compiler_info *compilers;
-    dcc_xci_compiler_info *ci;
+static char **dcc_xci_get_all_compiler_versions(void) {
+    const dcc_xci_compiler_info *compilers, *ci;
     int count, i, j;
     char **result = NULL;
 
@@ -710,6 +711,146 @@ char **dcc_xci_get_all_compiler_versions(void) {
     result[i++] = NULL;
 
     return result;
+}
+
+/**
+ * Return a string containing host information, including hardware information,
+ * the OS version, and compiler versions.  Information that can't be collected
+ * due to errors is omitted from the report.
+ *
+ * Errors that occur for reasons other than failure to collect data are
+ * treated as failures and result in this function returning NULL.
+ *
+ * The returned string is cached in static storage and must not be freed by
+ * callers.
+ **/
+const char *dcc_xci_host_info_string() {
+    static const char sys_key[] = "SYSTEM=";
+    static const char distcc_key_and_value[] = "DISTCC=" PACKAGE_VERSION;
+    static const char compiler_key[] = "COMPILER=";
+    static const char cpus_key[] = "CPUS=";
+    static const char cpuspeed_key[] = "CPUSPEED=";
+    static const char jobs_key[] = "JOBS=";
+    static const char priority_key[] = "PRIORITY=";
+    static int has_host_info = 0;
+    static char *host_info = NULL;
+    int len = 0, pos = 0, ncpus;
+    unsigned long long cpuspeed;
+    char *info = NULL;
+    const char *sys;
+    char **compilers = NULL, **compiler;
+
+    if (has_host_info)
+        return host_info;
+
+    has_host_info = 1;
+
+    /* Allocate 20 bytes for each integer value, so that even if they're
+     * 64-bit integers, there will be enough room to store them in decimal.
+     * Using sizeof on each key includes the key's terminating NUL, so this
+     * doesn't need to account separately for each line's terminating newline.
+     */
+    static const int int_decimal_len = 20;
+
+    sys = dcc_xci_get_system_version();
+    if (sys)
+        len += sizeof(sys_key) + strlen(sys);
+
+    len += sizeof(distcc_key_and_value);
+
+    compilers = dcc_xci_get_all_compiler_versions();
+    if (compilers) {
+        for (compiler = compilers; *compiler; ++compiler)
+            len += sizeof(compiler_key) + strlen(*compiler);
+    }
+
+    len += sizeof(cpus_key) + int_decimal_len;
+    len += sizeof(cpuspeed_key) + int_decimal_len;
+
+    if (dcc_max_kids)
+        len += sizeof(jobs_key) + int_decimal_len;
+
+    len += sizeof(priority_key) + int_decimal_len;
+
+    /* Leave room for a NUL terminator at the end of the entire string. */
+    ++len;
+
+    info = malloc(len);
+    if (!info) {
+        rs_log_error("malloc(%d) failed: %s", len, strerror(errno));
+        goto out_error;
+    }
+    info[pos] = '\0';
+
+    if (sys) {
+        pos += snprintf(info + pos, len - pos, "%s%s\n", sys_key, sys);
+        if (pos >= len)
+            goto out_error_info_size;
+    }
+
+    pos += snprintf(info + pos, len - pos, "%s\n", distcc_key_and_value);
+    if (pos >= len)
+        goto out_error_info_size;
+
+    if (compilers) {
+        for (compiler = compilers; *compiler; ++compiler) {
+            pos += snprintf(info + pos, len - pos, "%s%s\n",
+                            compiler_key, *compiler);
+            if (pos >= len)
+                goto out_error_info_size;
+        }
+        free(compilers);
+        compilers = NULL;
+    }
+ 
+    if (dcc_ncpus(&ncpus) == 0) {
+        pos += snprintf(info + pos, len - pos, "%s%d\n", cpus_key, ncpus);
+        if (pos >= len)
+            goto out_error_info_size;
+    }
+
+    if (dcc_cpuspeed(&cpuspeed) == 0) {
+        pos += snprintf(info + pos, len - pos, "%s%llu\n", cpuspeed_key,
+                        cpuspeed);
+        if (pos >= len)
+            goto out_error_info_size;
+    }
+
+    if (dcc_max_kids) {
+        pos += snprintf(info + pos, len - pos, "%s%d\n",
+                        jobs_key, dcc_max_kids);
+        if (pos >= len)
+            goto out_error_info_size;
+    }
+
+    pos += snprintf(info + pos, len - pos, "%s%d\n", priority_key,
+                    arg_priority);
+    if (pos >= len)
+        goto out_error_info_size;
+
+    /* Trim the buffer to the size actually used. */
+    if (pos + 1 < len) {
+        if (!(host_info = realloc(info, pos + 1))) {
+            rs_log_error("realloc() failed: %s", strerror(errno));
+            goto out_error;
+        }
+    } else {
+        host_info = info;
+    }
+    info = NULL;
+
+    return host_info;
+
+  out_error_info_size:
+    rs_log_error("info buffer of size %d is too small", len);
+
+  out_error:
+    if (info)
+        free(info);
+    if (compilers)
+        free(compilers);
+
+    return NULL;
 }
 
 #endif /* XCODE_INTEGRATION */

@@ -47,6 +47,10 @@
 #include "access.h"
 #include "exec.h"
 
+#ifdef XCODE_INTEGRATION
+  #include "xci_versinfo.h"
+#endif
+
 int opt_niceness = 5;           /* default */
 
 /**
@@ -143,6 +147,7 @@ const struct poptOption options[] = {
     { "zeroconf", 0,     POPT_ARG_NONE, &opt_zeroconf, 0, 0, 0 },
 #endif
 #ifdef XCODE_INTEGRATION
+    { "host-info", 'I',  POPT_ARG_NONE, 0, 'I', 0, 0 },
     { "priority", 0,     POPT_ARG_INT, &arg_priority, 0, 0, 0 },
 #endif
     { 0, 0, 0, 0, 0, 0, 0 }
@@ -164,6 +169,9 @@ static void distccd_show_usage(void)
 "    --user USER                if run by root, change to this persona\n"
 "    --jobs, -j LIMIT           maximum tasks at any time\n"
 "    --job-lifetime SECONDS     maximum lifetime of a compile request\n"
+#ifdef XCODE_INTEGRATION
+"    --host-info                display system/compiler information and exit\n"
+#endif
 "  Networking:\n"
 "    -p, --port PORT            TCP port to listen on\n"
 "    --listen ADDRESS           IP address to listen on\n"
@@ -200,6 +208,9 @@ int distccd_parse_options(int argc, const char **argv)
 {
     poptContext po;
     int po_err, exitcode;
+#ifdef XCODE_INTEGRATION
+    const char *host_info;
+#endif
 
     po = poptGetContext("distccd", argc, argv, options, 0);
 
@@ -286,6 +297,43 @@ int distccd_parse_options(int argc, const char **argv)
             rs_trace_set_level(RS_LOG_DEBUG);
             opt_log_level_num = RS_LOG_DEBUG;
             break;
+
+#ifdef XCODE_INTEGRATION
+        case 'I':
+            /* For --host-info.  Having this as a distccd option seems kind
+             * of weird, but Xcode runs "distccd --host-info localhost" to
+             * determine information about the running system,
+             * locally-installed compilers, and distcc version.  (The
+             * localhost" argument is ignored.) */
+
+#ifdef __APPLE__
+            /* Xcode uses "distccd --host-info" to obtain compiler information
+             * and expects to be given a list of compilers located within the
+             * xcode-select path.  However, it does not set
+             * USE_XCODE_SELECT_PATH.  Due to a bug in Apple's distcc fork,
+             * dcc_send_host_info historically happened to usually behave as
+             * this environment variable was set anyway.  Because the set of
+             * compilers in / and the xcode-select path may be different (the
+             * former never contains llvm-gcc), we can't just let this slide,
+             * we need to force the xcode-select path here too.
+             *
+             * This is within #ifdef __APPLE__ because USE_XCODE_SELECT_PATH
+             * may not make any sense on non-Macs where it forces the use of
+             * a hard-coded default that may not be desired.
+             *
+             * For a long-term solution, Xcode should set
+             * USE_XCODE_SELECT_PATH=1 when running "distccd --host-info". */
+            setenv("USE_XCODE_SELECT_PATH", "1", 1);
+#endif /* __APPLE__ */
+
+            if ((host_info = dcc_xci_host_info_string())) {
+                printf("%s", host_info);
+                exitcode = 0;
+            } else {
+                exitcode = EXIT_DISTCC_FAILED;
+            }
+            goto out_exit;
+#endif /* XCODE_INTEGRATION */
 
         default:                /* bad? */
             rs_log(RS_LOG_NONAME|RS_LOG_ERR|RS_LOG_NO_PID, "%s: %s",

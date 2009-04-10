@@ -26,8 +26,7 @@
 
 #ifdef XCODE_INTEGRATION
 /* xci_versinfo.c */
-char *dcc_xci_get_system_version(void);
-char **dcc_xci_get_all_compiler_versions(void);
+const char *dcc_xci_host_info_string(void);
 #endif
 
 #endif /* DISTCC_XCI_VERSINFO_H_ */
