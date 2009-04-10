@@ -847,7 +847,7 @@ int dcc_send_host_info(int out_fd)
     static const char priority_key[] = "PRIORITY=";
     int len = 0, pos = 0, ncpus, ret;
     unsigned long long cpuspeed;
-    char *info = NULL;
+    char *info = NULL, *sys;
     char **compilers = NULL, **compiler;
 
     /* Allocate 20 bytes for each integer value, so that even if they're
@@ -857,7 +857,10 @@ int dcc_send_host_info(int out_fd)
      */
     static const int int_decimal_len = 20;
 
-    len += sizeof(sys_key) + strlen("Something");
+    sys = dcc_xci_get_system_version();
+    if (sys)
+        len += sizeof(sys_key) + strlen(sys);
+
     len += sizeof(distcc_key_and_value);
 
     compilers = dcc_xci_get_all_compiler_versions();
@@ -881,9 +884,11 @@ int dcc_send_host_info(int out_fd)
     }
     info[pos] = '\0';
 
-    pos += snprintf(info + pos, len - pos, "%s%s\n", sys_key, "Something");
-    if (pos >= len)
-        goto out_error_info_size;
+    if (sys) {
+        pos += snprintf(info + pos, len - pos, "%s%s\n", sys_key, sys);
+        if (pos >= len)
+            goto out_error_info_size;
+    }
 
     pos += snprintf(info + pos, len - pos, "%s\n", distcc_key_and_value);
     if (pos >= len)
