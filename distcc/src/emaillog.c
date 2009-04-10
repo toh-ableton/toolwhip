@@ -122,7 +122,7 @@ void dcc_maybe_send_email(void) {
   asprintf(&will_send_message_to, will_send_message_format, whom_to_blame);
   asprintf(&cant_send_message_to, cant_send_message_format, whom_to_blame);
 
-  rs_log_warning(will_send_message_to);
+  rs_log_warning("%s", will_send_message_to);
   free(will_send_message_to);
 
   if (email_fileno < 0) {
