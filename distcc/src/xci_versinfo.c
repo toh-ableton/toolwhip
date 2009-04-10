@@ -25,12 +25,14 @@
 
 #include <config.h>
 
+#include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/utsname.h>
 
 #include "distcc.h"
 #include "trace.h"
@@ -149,6 +151,139 @@ static char *dcc_xci_run_command(const char *command_line) {
         free(output);
     if (p)
         pclose(p);
+    return NULL;
+}
+
+/**
+ * Return the system version.  Two things can happen here.  If the sw_vers
+ * program is found, as it should be on Macs, this will run sw_vers to obtain
+ * the product and build versions.  In other cases, the operating system name
+ * and version will be obtained from uname().  This information, along with
+ * the CPU type also obtained from uname(), will be returned.
+ *
+ * Example return values:
+ *   "10.5.6 (9G55, i386)"
+ *   "Linux 2.6.28-11-generic (x86_64)"
+ *
+ * This function allocates a new string that is retained in static storage.
+ * Callers must not free the returned string, as it is not copied and is
+ * cached for future calls.
+ *
+ * Returns NULL on failure.
+ **/
+char *dcc_xci_get_system_version(void) {
+    static const char product_line_match[] = "ProductVersion:";
+    static const char build_line_match[] = "BuildVersion:";
+    struct utsname info;
+    struct stat statbuf;
+    char *sw_vers = NULL;
+    char *product_line, *build_line, *product, *build, *end;
+    int len;
+    static int has_system_version = 0;
+    static char *system_version = NULL;
+
+    if (!has_system_version) {
+        has_system_version = 1;
+
+        if (uname(&info)) {
+            rs_log_error("uname() failed: %s", strerror(errno));
+            goto out_error;
+        }
+
+#ifdef __APPLE__
+        /* PowerPC Mac OS X reports "Power Macintosh" for uname -m, but
+         * historically Apple distcc uses "ppc" as the architecture name. */
+        if (!strcmp(info.machine, "Power Macintosh"))
+            strcpy(info.machine, "ppc");
+#endif /* __APPLE__ */
+
+        if (stat("/usr/bin/sw_vers", &statbuf) == 0) {
+            /* sw_vers is available.  This is either a real Mac or something
+             * doing a reasonable impersonation.  Use the numbers reported
+             * by sw_vers. */
+            if (!(sw_vers = dcc_xci_run_command("/usr/bin/sw_vers")))
+                goto out_error;
+
+            /* Find the product and build versions. */
+            product_line = strstr(sw_vers, product_line_match);
+            build_line = strstr(sw_vers, build_line_match);
+
+            /* Make sure that the product and build versions are present and
+             * that they're at the beginnings of their lines. */
+            if (!product_line || !build_line ||
+                !(product_line == sw_vers || *(product_line - 1) == '\n') ||
+                !(build_line == sw_vers || *(build_line - 1) == '\n')) {
+                rs_log_error("malformed output from sw_vers");
+                goto out_error;
+            }
+
+            /* Skip spaces to find the beginning of the product and build
+             * version strings. */
+            product = product_line + sizeof(product_line_match);
+            while (*product && *product != '\n' && isspace(*product))
+                ++product;
+
+	    build = build_line + sizeof(build_line_match);
+            while (*build && *build != '\n' && isspace(*build))
+                ++build;
+
+            if (!*product || *product == '\n' || !*build || *build == '\n') {
+                rs_log_error("malformed output from sw_vers");
+                goto out_error;
+            }
+
+            /* NUL-terminate the product and build strings. */
+            end = strchr(product, '\n');
+            if (!end) {
+                rs_log_error("malformed output from sw_vers");
+                goto out_error;
+            }
+            *end = '\0';
+
+            end = strchr(build, '\n');
+            if (!end) {
+                rs_log_error("malformed output from sw_vers");
+                goto out_error;
+            }
+            *end = '\0';
+
+            /* Format as "product (build, info.machine)".  Leave room for
+             * two spaces, two parentheses, a comma, and a NUL terminator. */
+            len = strlen(product) + strlen(build) + strlen(info.machine) + 6;
+
+            if (!(system_version = malloc(len))) {
+                rs_log_error("malloc() failed: %s", strerror(errno));
+                goto out_error;
+            }
+
+            snprintf(system_version, len, "%s (%s, %s)",
+                     product, build, info.machine);
+
+            free(sw_vers);
+            sw_vers = NULL;
+        } else {
+            /* sw_vers is not available.  This must not be a Mac.  Report the
+             * version using uname -srm.  Format as "sysname release (machine)".
+             * Leave room for the two spaces, two parentheses, and a NUL
+             * terminator. */
+            len = strlen(info.sysname) + strlen(info.release) +
+                  strlen(info.machine) + 5;
+
+            if (!(system_version = malloc(len))) {
+                rs_log_error("malloc() failed: %s", strerror(errno));
+                goto out_error;
+            }
+
+            snprintf(system_version, len, "%s %s (%s)",
+                     info.sysname, info.release, info.machine);
+        }
+    }
+
+    return system_version;
+
+  out_error:
+    if (sw_vers)
+        free(sw_vers);
     return NULL;
 }
 
