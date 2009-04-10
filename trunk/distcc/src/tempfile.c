@@ -203,16 +203,37 @@ int dcc_get_tmp_top(const char **p_ret)
     return 0;
 #else
     const char *d;
+    char *s;
+    int l;
+    static const char *tmp_dir = NULL;
+    
+    if (!tmp_dir) {
 
-    d = getenv("TMPDIR");
+        d = getenv("TMPDIR");
 
-    if (!d || d[0] == '\0') {
-        *p_ret = "/tmp";
-        return 0;
-    } else {
-        *p_ret = d;
-        return 0;
+        /* Make sure it doesn't end in a slash */
+        if (d && d[0] != '\0') {
+            l = strlen(d) - 1;
+            if (d[l] == '/') {
+                s = strdup(d);
+                if (s) {
+                    tmp_dir = s;
+                    /* Loop to handle multiple trailing slashes */
+                    while (l && s[l] == '/') {
+                        s[l--] = 0;
+                    }
+                }
+            } else {
+                tmp_dir = d;
+            }
+        }
+        if (!tmp_dir) {
+            /* Env var was not set, or strdup failed */
+            tmp_dir = "/tmp";
+        }
     }
+    *p_ret = tmp_dir;
+    return 0;
 #endif
 }
 
