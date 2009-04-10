@@ -1,5 +1,7 @@
-/* -*- c-file-style: "java"; indent-tabs-mode: nil; tab-width: 4; fill-column: 7
-8 -*-
+/* -*- c-file-style: "java"; indent-tabs-mode: nil; tab-width: 4; fill-column: 78 -*-
+ *
+ * distcc -- A simple distributed compiler system
+ *
  * Copyright 2005-2008 Apple Computer, Inc.
  * Copyright 2009 Google Inc.
  *
@@ -17,7 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
  * USA.
-*/
+ */
 
 /* Author: Mark Mentovai */
 

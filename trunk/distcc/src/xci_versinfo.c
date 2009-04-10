@@ -1,5 +1,7 @@
-/* -*- c-file-style: "java"; indent-tabs-mode: nil; tab-width: 4; fill-column: 7
-8 -*-
+/* -*- c-file-style: "java"; indent-tabs-mode: nil; tab-width: 4; fill-column: 78 -*-
+ *
+ * distcc -- A simple distributed compiler system
+ *
  * Copyright 2005-2008 Apple Computer, Inc.
  * Copyright 2009 Google Inc.
  *
@@ -17,13 +19,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
  * USA.
-*/
+ */
 
 /* Author: Mark Mentovai */
 
-#ifdef XCODE_INTEGRATION
-
 #include <config.h>
+
+#ifdef XCODE_INTEGRATION
 
 #include <ctype.h>
 #include <errno.h>
@@ -157,7 +159,8 @@ static char *dcc_xci_run_command(const char *command_line) {
 }
 
 /**
- * Return the system version.  Two things can happen here.  If the sw_vers
+ * Return the system version.  Three things can happen here.  If a system
+ * version string override is set, it will be returned.  If the sw_vers
  * program is found, as it should be on Macs, this will run sw_vers to obtain
  * the product and build versions.  In other cases, the operating system name
  * and version will be obtained from uname().  This information, along with
@@ -167,9 +170,8 @@ static char *dcc_xci_run_command(const char *command_line) {
  *   "10.5.6 (9G55, i386)"
  *   "Linux 2.6.28-11-generic (x86_64)"
  *
- * This function allocates a new string that is retained in static storage.
- * Callers must not free the returned string, as it is not copied and is
- * cached for future calls.
+ * This function returns a string from static storage.  Callers must not free
+ * the returned string.
  *
  * Returns NULL on failure.
  **/
@@ -184,6 +186,10 @@ static const char *dcc_xci_get_system_version(void) {
     static int has_system_version = 0;
     static char *system_version = NULL;
 
+    /* Use a command-line override if set. */
+    if (arg_system_version)
+        return arg_system_version;
+
     if (!has_system_version) {
         has_system_version = 1;
 
@@ -195,8 +201,10 @@ static const char *dcc_xci_get_system_version(void) {
 #ifdef __APPLE__
         /* PowerPC Mac OS X reports "Power Macintosh" for uname -m, but
          * historically Apple distcc uses "ppc" as the architecture name. */
-        if (!strcmp(info.machine, "Power Macintosh"))
-            strcpy(info.machine, "ppc");
+        if (!strncmp(info.machine, "Power Macintosh", sizeof(info.machine))) {
+            strncpy(info.machine, "ppc", sizeof(info.machine));
+            info.machine[sizeof(info.machine) - 1] = '\0';
+        }
 #endif /* __APPLE__ */
 
         if (stat("/usr/bin/sw_vers", &statbuf) == 0) {
@@ -287,6 +295,18 @@ static const char *dcc_xci_get_system_version(void) {
     if (sw_vers)
         free(sw_vers);
     return NULL;
+}
+
+/**
+ * Returns the distcc version to report.  If a distcc version override string
+ * is set, it will be returned.  Otherwise, the package version is used.  The
+ * returned string must not be freed.
+ **/
+static const char *dcc_xci_get_distcc_version(void) {
+    if (arg_distcc_version)
+        return arg_distcc_version;
+
+    return PACKAGE_VERSION;
 }
 
 /**
@@ -726,7 +746,7 @@ static char **dcc_xci_get_all_compiler_versions(void) {
  **/
 const char *dcc_xci_host_info_string() {
     static const char sys_key[] = "SYSTEM=";
-    static const char distcc_key_and_value[] = "DISTCC=" PACKAGE_VERSION;
+    static const char distcc_key[] = "DISTCC=";
     static const char compiler_key[] = "COMPILER=";
     static const char cpus_key[] = "CPUS=";
     static const char cpuspeed_key[] = "CPUSPEED=";
@@ -737,7 +757,7 @@ const char *dcc_xci_host_info_string() {
     int len = 0, pos = 0, ncpus;
     unsigned long long cpuspeed;
     char *info = NULL;
-    const char *sys;
+    const char *sys, *distcc;
     char **compilers = NULL, **compiler;
 
     if (has_host_info)
@@ -756,7 +776,8 @@ const char *dcc_xci_host_info_string() {
     if (sys)
         len += sizeof(sys_key) + strlen(sys);
 
-    len += sizeof(distcc_key_and_value);
+    distcc = dcc_xci_get_distcc_version();
+    len += sizeof(distcc_key) + strlen(distcc);
 
     compilers = dcc_xci_get_all_compiler_versions();
     if (compilers) {
@@ -788,7 +809,7 @@ const char *dcc_xci_host_info_string() {
             goto out_error_info_size;
     }
 
-    pos += snprintf(info + pos, len - pos, "%s\n", distcc_key_and_value);
+    pos += snprintf(info + pos, len - pos, "%s%s\n", distcc_key, distcc);
     if (pos >= len)
         goto out_error_info_size;
 
