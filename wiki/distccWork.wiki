@@ -1,7 +1,6 @@
 #summary The pending tasks to be done for distcc
 
 The pending tasks for the distcc work
-  * finish up --hostinfo - mark
   * -isysroot/--sysroot - tvl taking everything not in include_server at this time.
      * distcc cmdline needs to make sure we only get one of these at a time (mm note: gcc actually accepts multiple -isysroot but only honors the last one.  gcc honors -isysroot over --sysroot for include path purposes regardless of where they appear on the command line relative to one another.)
      * index_server needs to collect it and use it when collecting compiler defaults
@@ -25,6 +24,9 @@ The pending tasks for the distcc work
   * remove GNU Make-ism (filter-out) from Makefile, move the logic into configure.  Make -DXCODE_INTEGRATION something that configure knows how to set.
   * Xcode passes the compiler to use to distcc with the developer dir in the path.  This means we need to map between xcode install locations on the compiler also.
 
+nice to have, not critical:
+  * DISTCC_HOSTS token to indicate that xcodedistcc zeroconf hosts should be collected, similar to +zeroconf for native distcc zeroconf hosts
+
 done:
   * -x support
      * -x in distcc/distccd -- code and tests added
@@ -37,6 +39,7 @@ done:
   * don't force a .d file to be created on the server since it can conflict w/ more then one -arch option.
   * --hostinfo compiler version reporting
   * fix paths in debug info for Mach-O files
+  * finish up --hostinfo - mark
 
 Things to point out to apple
   * the gcc version must also bump if the sdks change in any way due to how system headers are moved over the wire, they need to match between all machines so they see the same headers.
