@@ -570,6 +570,9 @@ static int dcc_run_job(int in_fd,
     char *server_cwd = NULL;
     char *client_cwd = NULL;
     int send_back_dotd = 0;
+#ifdef XCODE_INTEGRATION
+    const char *host_info;
+#endif
 
     gettimeofday(&start, NULL);
 
@@ -614,11 +617,10 @@ static int dcc_run_job(int in_fd,
 
 #ifdef XCODE_INTEGRATION
     if (!strcmp(argv[0], "--host-info") && !argv[1]) {
-        if ((ret = dcc_x_result_header(out_fd, protover) ||
-                   dcc_send_host_info(out_fd))) {
-            /* Something went wrong, so send DOTO 0 */
-            dcc_x_token_int(out_fd, "DOTO", 0);
-        }
+        host_info = dcc_xci_host_info_string();
+        ret = !host_info ||
+              dcc_x_result_header(out_fd, protover) ||
+              dcc_x_token_string(out_fd, "HINF", host_info);
 
         /* Uncork now, since we're jumping straight to out_cleanup and
          * skipping over the uncork that happens when a real job is done. */
@@ -821,127 +823,3 @@ out_cleanup:
 
     return ret;
 }
-
-
-#ifdef XCODE_INTEGRATION
-/**
- * Send host information, including hardware information, the OS version, and
- * compiler versions.  Information that can't be collected due to errors is
- * omitted from the report.
- *
- * Errors that occur for reasons other than failure to collect data are
- * treated as failures and result in this function exiting nonzero, and
- * perhaps not transmitting the HINF block.  In that case, the connection will
- * be closed after this function returns anyway, so the error will
- * unambiguously result in the client requesting host info to fail.  This is
- * the desired behavior.
- **/
-int dcc_send_host_info(int out_fd)
-{
-    static const char sys_key[] = "SYSTEM=";
-    static const char distcc_key_and_value[] = "DISTCC=" PACKAGE_VERSION;
-    static const char compiler_key[] = "COMPILER=";
-    static const char cpus_key[] = "CPUS=";
-    static const char cpuspeed_key[] = "CPUSPEED=";
-    static const char jobs_key[] = "JOBS=";
-    static const char priority_key[] = "PRIORITY=";
-    int len = 0, pos = 0, ncpus, ret;
-    unsigned long long cpuspeed;
-    char *info = NULL, *sys;
-    char **compilers = NULL, **compiler;
-
-    /* Allocate 20 bytes for each integer value, so that even if they're
-     * 64-bit integers, there will be enough room to store them in decimal.
-     * Using sizeof on each key includes the key's terminating NUL, so this
-     * doesn't need to account separately for each line's terminating newline.
-     */
-    static const int int_decimal_len = 20;
-
-    sys = dcc_xci_get_system_version();
-    if (sys)
-        len += sizeof(sys_key) + strlen(sys);
-
-    len += sizeof(distcc_key_and_value);
-
-    compilers = dcc_xci_get_all_compiler_versions();
-    if (compilers) {
-        for (compiler = compilers; *compiler; ++compiler)
-            len += sizeof(compiler_key) + strlen(*compiler);
-    }
-
-    len += sizeof(cpus_key) + int_decimal_len;
-    len += sizeof(cpuspeed_key) + int_decimal_len;
-    len += sizeof(jobs_key) + int_decimal_len;
-    len += sizeof(priority_key) + int_decimal_len;
-
-    /* Leave room for a NUL terminator at the end of the entire string. */
-    ++len;
-
-    info = malloc(len);
-    if (!info) {
-        rs_log_error("malloc(%d) failed: %s", len, strerror(errno));
-        goto out_error;
-    }
-    info[pos] = '\0';
-
-    if (sys) {
-        pos += snprintf(info + pos, len - pos, "%s%s\n", sys_key, sys);
-        if (pos >= len)
-            goto out_error_info_size;
-    }
-
-    pos += snprintf(info + pos, len - pos, "%s\n", distcc_key_and_value);
-    if (pos >= len)
-        goto out_error_info_size;
-
-    if (compilers) {
-        for (compiler = compilers; *compiler; ++compiler) {
-            pos += snprintf(info + pos, len - pos, "%s%s\n",
-                            compiler_key, *compiler);
-            if (pos >= len)
-                goto out_error_info_size;
-        }
-        free(compilers);
-        compilers = NULL;
-    }
- 
-    if (dcc_ncpus(&ncpus) == 0) {
-        pos += snprintf(info + pos, len - pos, "%s%d\n", cpus_key, ncpus);
-        if (pos >= len)
-            goto out_error_info_size;
-    }
-
-    if (dcc_cpuspeed(&cpuspeed) == 0) {
-        pos += snprintf(info + pos, len - pos, "%s%llu\n", cpuspeed_key,
-                        cpuspeed);
-        if (pos >= len)
-            goto out_error_info_size;
-    }
-
-    pos += snprintf(info + pos, len - pos, "%s%d\n", jobs_key, dcc_max_kids);
-    if (pos >= len)
-        goto out_error_info_size;
-
-    pos += snprintf(info + pos, len - pos, "%s%d\n", priority_key,
-                    arg_priority);
-    if (pos >= len)
-        goto out_error_info_size;
-
-    ret = dcc_x_token_string(out_fd, "HINF", info);
-
-    free(info);
-
-    return ret;
-
-  out_error_info_size:
-    rs_log_error("info buffer of size %d is too small", len);
-
-  out_error:
-    if (info)
-        free(info);
-    if (compilers)
-        free(compilers);
-
-    return EXIT_OUT_OF_MEMORY;
-}
-#endif /* XCODE_INTEGRATION */
