@@ -117,6 +117,11 @@ int opt_zeroconf = 0;
  * "low" to 20, "medium" to 10, and "high" to 0 when configuring launchd to
  * start distccd. */
 int arg_priority = 10;
+
+/* System and distcc version string overrides.  If unset, the defaults
+ * will be used.  This is handled in xci_versinfo.c. */
+char *arg_system_version = NULL;
+char *arg_distcc_version = NULL;
 #endif
 
 const struct poptOption options[] = {
@@ -149,6 +154,8 @@ const struct poptOption options[] = {
 #ifdef XCODE_INTEGRATION
     { "host-info", 'I',  POPT_ARG_NONE, 0, 'I', 0, 0 },
     { "priority", 0,     POPT_ARG_INT, &arg_priority, 0, 0, 0 },
+    { "system-version", 0, POPT_ARG_STRING, &arg_system_version, 0, 0, 0},
+    { "distcc-version", 0, POPT_ARG_STRING, &arg_distcc_version, 0, 0, 0},
 #endif
     { 0, 0, 0, 0, 0, 0, 0 }
 };
@@ -171,6 +178,8 @@ static void distccd_show_usage(void)
 "    --job-lifetime SECONDS     maximum lifetime of a compile request\n"
 #ifdef XCODE_INTEGRATION
 "    --host-info                display system/compiler information and exit\n"
+"    --system-version           override system version reported to Xcode\n"
+"    --distcc-version           override distcc version reported to Xcode\n"
 #endif
 "  Networking:\n"
 "    -p, --port PORT            TCP port to listen on\n"
