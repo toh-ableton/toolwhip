@@ -2,8 +2,8 @@
  *
  * distcc -- A simple distributed compiler system
  *
- * Copyright (C) 2002, 2003 by Martin Pool <mbp@samba.org>
- * Copyright 2007 Google Inc.
+ * Copyright 2005-2008 Apple Computer, Inc.
+ * Copyright 2009 Google Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -21,35 +21,16 @@
  * USA.
  */
 
+/* Author: Mark Mentovai */
 
-/* dopt.c */
-extern struct dcc_allow_list *opt_allowed;
-int distccd_parse_options(int argc, const char *argv[]);
-
-extern int arg_port;
-extern int arg_stats;
-extern int arg_stats_port;
-extern int opt_log_level_num;
-extern int arg_max_jobs;
-extern const char *arg_pid_file;
-extern int opt_no_fork;
-extern int opt_no_prefork;
-extern int opt_no_detach;
-extern int opt_daemon_mode, opt_inetd_mode;
-extern int opt_job_lifetime;
-extern const char *arg_log_file;
-extern int opt_no_fifo;
-extern int opt_log_stderr;
-extern int opt_lifetime;
-extern char *opt_listen_addr;
-extern int opt_niceness;
-
-#if defined(HAVE_AVAHI) || (defined(XCODE_INTEGRATION) && defined(HAVE_DNSSD))
-extern int opt_zeroconf;
-#endif
+#ifndef DISTCC_XCI_ZEROCONF_H_
+#define DISTCC_XCI_ZEROCONF_H_
 
 #ifdef XCODE_INTEGRATION
-extern int arg_priority;
-extern char *arg_system_version;
-extern char *arg_distcc_version;
+/* xci_zeroconf.c */
+#if defined(HAVE_AVAHI) || defined(HAVE_DNSSD)
+void *dcc_xci_zeroconf_register(void);
 #endif
+#endif
+
+#endif /* DISTCC_XCI_ZEROCONF_H_ */
