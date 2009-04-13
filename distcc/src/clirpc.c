@@ -247,40 +247,47 @@ int dcc_x_many_files(int ofd,
                      unsigned int n_files,
                      char **fnames)
 {
-    int ret;
+    int ret = 0;
     char link_points_to[MAXPATHLEN + 1];
     int is_link;
     const char *fname;
-    char *original_fname;
+    char *original_fname = NULL;
 
     dcc_x_token_int(ofd, "NFIL", n_files);
 
     for (; *fnames != NULL; ++fnames) {
         fname = *fnames;
         ret = dcc_get_original_fname(fname, &original_fname);
-        if (ret) return ret;
+        if (ret) goto out_error;
 
         if ((ret = dcc_is_link(fname, &is_link))) {
-            return ret;
+            goto out_error;
         }
 
         if (is_link) {
             if ((ret = dcc_read_link(fname, link_points_to)) ||
                 (ret = dcc_x_token_string(ofd, "NAME", original_fname)) ||
                 (ret = dcc_x_token_string(ofd, "LINK", link_points_to))) {
-                    return ret;
+                    goto out_error;
             }
         } else {
             ret = dcc_x_token_string(ofd, "NAME", original_fname);
-            if (ret) return ret;
+            if (ret) goto out_error;
             /* File should be compressed already.
                If we ever support non-compressed server-side-cpp,
                we should have some checks here and then uncompress
                the file if it is compressed. */
             ret = dcc_x_file(ofd, fname, "FILE", DCC_COMPRESS_NONE,
                              NULL);
-            if (ret) return ret;
+            if (ret) goto out_error;
         }
+        free(original_fname);
+        original_fname = NULL;
     }
     return 0;
+    
+  out_error:
+    if (original_fname)
+        free(original_fname);
+    return ret;
 }
