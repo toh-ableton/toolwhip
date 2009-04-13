@@ -54,3 +54,6 @@ size_t strlcpy(char *d, const char *s, size_t bufsize);
 #endif
 
 int dcc_tokenize_string(const char *in, char ***argv_ptr);
+
+char *dcc_replace_substring(const char *s,
+                            const char *find, const char *replace);

@@ -796,3 +796,90 @@ int dcc_tokenize_string(const char *input, char ***argv_ptr)
     free(input_copy);
     return 0;
 }
+
+/* Given a string @p s, this function returns a new string with all
+ * occurrences of @p find replaced with the contents of @p replace.
+ * If any arguments are missing, or any error occurs, returns NULL.
+ */
+char *dcc_replace_substring(const char *s,
+                            const char *find, const char *replace) {
+    int s_left;
+    int buf_pos = 0, buf_size = 0;
+    char *buf = NULL, *new_buf;
+    const char *scan = s, *next;
+    int replace_len, find_len;
+    int left_in_buf, space_needed;
+
+    if (!s || !find || !replace) {
+        rs_log_error("got NULL arguments");
+        goto out_error;
+    }
+  
+    find_len = strlen(find);
+    replace_len = strlen(replace);
+
+    if (!find_len) {
+        rs_log_error("Asked to replace an empty string");
+        goto out_error;
+    }
+
+    s_left = strlen(s);
+    buf_size = s_left + 1;
+    buf = malloc(buf_size * sizeof(char));
+    if (!buf) {
+        rs_log_error("malloc(%ld) failed: %s",
+                     buf_size * sizeof(char), strerror(errno));
+        goto out_error;
+    }
+
+    /* Loop on matches */
+    while ((next = strstr(scan, find))) {
+        left_in_buf = (buf_size - 1) - buf_pos;
+        space_needed = (next - scan) + replace_len;
+        if (space_needed > left_in_buf) {
+            buf_size += space_needed - left_in_buf;
+            new_buf = realloc(buf, buf_size * sizeof(char));
+            if (!new_buf) {
+                rs_log_error("realloc(%ld) failed: %s",
+                             buf_size * sizeof(char), strerror(errno));
+                goto out_error;
+            }
+            buf = new_buf;
+        }
+        strncpy(buf + buf_pos, scan, next - scan);
+        buf_pos += (next - scan);
+        s_left -= (next - scan);
+        strcpy(buf + buf_pos, replace);
+        buf_pos += replace_len;
+
+        scan = next + find_len;
+    }
+    
+    /* Copy over what was left after the last replacement. */
+    if (s_left) {
+        left_in_buf = (buf_size - 1) - buf_pos;
+        if (s_left > left_in_buf) {
+            buf_size += s_left - left_in_buf;
+            new_buf = realloc(buf, buf_size * sizeof(char));
+            if (!new_buf) {
+                rs_log_error("realloc(%ld) failed: %s",
+                             buf_size * sizeof(char), strerror(errno));
+                goto out_error;
+            }
+            buf = new_buf;
+        } 
+        strcpy(buf + buf_pos, scan);
+        buf_pos += s_left;
+    }
+
+    /* Terminate it. */
+    buf[buf_pos + 1] = '\0';
+
+    return buf;
+
+  out_error:
+
+    if (buf)
+        free(buf);
+    return NULL;
+}
