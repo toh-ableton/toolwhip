@@ -271,7 +271,7 @@ distccd_obj = src/access.o						\
 	src/stringmap.o							\
 	src/serve.o src/setuid.o src/srvnet.o src/srvrpc.o src/state.o	\
 	src/stats.o							\
-	src/xci_utils.o src/xci_versinfo.o				\
+	src/xci_utils.o src/xci_versinfo.o src/xci_zeroconf.o		\
 	src/fix_debug_info.o						\
 	@ZEROCONF_DISTCCD_OBJS@						\
 	$(common_obj) @BUILD_POPT@
@@ -345,6 +345,7 @@ SRC =	src/stats.c							\
 	src/dotd.c src/include_server_if.c				\
 	src/emaillog.c							\
 	src/fix_debug_info.c						\
+	src/xci_utils.c src/xci_versinfo.c src/xci_zeroconf.c		\
 	src/zeroconf.c src/zeroconf-reg.c src/gcc-id.c
 
 
@@ -369,8 +370,7 @@ HEADERS = src/stats.h							\
 	src/dotd.h src/include_server_if.h				\
 	src/emaillog.h							\
 	src/va_copy.h							\
-	src/xci_utils.h							\
-	src/xci_versinfo.h						\
+	src/xci_utils.h src/xci_versinfo.h src/xci_zeroconf.h		\
 	src/zeroconf.h
 
 conf_dir = packaging/RedHat/conf
