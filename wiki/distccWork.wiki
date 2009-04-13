@@ -25,6 +25,7 @@ The pending tasks for the distcc work
   * what happens if you pass already-preprocessed input like .i and .ii to the include server?
   * move the language bits into helper objects so we don't have to repeat so much in the tests
   * remove GNU Make-ism (filter-out) from Makefile, move the logic into configure.  Make -DXCODE_INTEGRATION something that configure knows how to set.
+  * update the makefile to not compile the xci files if xcode integration isn't enabled.
 
 nice to have, not critical:
   * DISTCC_HOSTS token to indicate that xcodedistcc zeroconf hosts should be collected, similar to +zeroconf for native distcc zeroconf hosts
