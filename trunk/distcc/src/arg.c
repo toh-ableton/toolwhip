@@ -136,14 +136,19 @@ static void dcc_note_compiled(const char *input_file, const char *output_file)
  * The copy is dynamically allocated and the caller is responsible for
  * deallocating it.
  *
+ * If @p forced_cpp_ext is non NULL, it is filled it with the extension that
+ * is forced by a -x language directive.  The caller should not free this
+ * value.
+ *
  * @returns 0 if it's ok to distribute this compilation, or an error code.
  **/
 int dcc_scan_args(char *argv[], char **input_file, char **output_file,
-                  char ***ret_newargv)
+                  char ***ret_newargv, const char **forced_cpp_ext)
 {
     int seen_opt_c = 0, seen_opt_s = 0;
     int i;
     char *a, *optx_lang;
+    const char *optx_ext = NULL;
     int ret;
 
      /* allow for -o foo.o */
@@ -241,12 +246,12 @@ int dcc_scan_args(char *argv[], char **input_file, char **output_file,
                 rs_log_info("-x must precede source file; running locally");
                 return EXIT_DISTCC_FAILED;
               }
-              if (dcc_optx_ext) {
+              if (optx_ext) {
                 rs_log_info("at most one -x supported; running locally");
                 return EXIT_DISTCC_FAILED;
               }
-              dcc_optx_ext = dcc_optx_ext_lookup(optx_lang);
-              if (!dcc_optx_ext) {
+              optx_ext = dcc_optx_ext_lookup(optx_lang);
+              if (!optx_ext) {
                 rs_log_info("unsupported -x language; running locally");
                 return EXIT_DISTCC_FAILED;
               }
@@ -348,6 +353,9 @@ int dcc_scan_args(char *argv[], char **input_file, char **output_file,
         rs_log_info("output to stdout?  running locally");
         return EXIT_DISTCC_FAILED;
     }
+
+    if (forced_cpp_ext)
+        *forced_cpp_ext = optx_ext;
 
     return 0;
 }

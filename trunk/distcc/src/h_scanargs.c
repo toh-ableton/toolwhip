@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
     if (result)
     return result;
 
-    result = dcc_scan_args(newargv, &infname, &outfname, &outargv);
+    result = dcc_scan_args(newargv, &infname, &outfname, &outargv, NULL);
 
     printf("%s %s %s\n",
        result == 0 ? "distribute" : "local",

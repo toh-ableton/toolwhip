@@ -612,7 +612,7 @@ static int dcc_run_job(int in_fd,
 
     if ((ret = dcc_r_argv(in_fd, &argv))
         || (ret = dcc_scan_args(argv, &orig_input_tmp, &orig_output_tmp,
-                                &tweaked_argv)))
+                                &tweaked_argv, &dcc_optx_ext)))
         goto out_cleanup;
 
 #ifdef XCODE_INTEGRATION
@@ -809,6 +809,8 @@ out_cleanup:
         dcc_free_argv(argv);
     if (tweaked_argv)
         dcc_free_argv(tweaked_argv);
+
+    dcc_optx_ext = NULL;
 
     free(temp_dir);
     free(temp_i);

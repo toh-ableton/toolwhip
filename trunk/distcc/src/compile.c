@@ -498,7 +498,8 @@ dcc_build_somewhere(char *argv[],
 
     /* FIXME: this may leak memory for argv. */
 
-    ret = dcc_scan_args(argv, &input_fname, &output_fname, &new_argv);
+    ret = dcc_scan_args(argv, &input_fname, &output_fname, &new_argv,
+                        &dcc_optx_ext);
     dcc_free_argv(argv);
     argv = new_argv;
     if (ret != 0) {
@@ -751,6 +752,7 @@ dcc_build_somewhere(char *argv[],
         free(server_side_argv);
     }
     free(discrepancy_filename);
+    dcc_optx_ext = NULL;
     return ret;
 }
 
