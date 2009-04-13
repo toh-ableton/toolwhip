@@ -256,7 +256,8 @@ int dcc_set_action_opt(char **, const char *);
 int dcc_set_output(char **, char *);
 int dcc_set_input(char **, char *);
 int dcc_scan_args(char *argv[], /*@out@*/ /*@relnull@*/ char **orig_o,
-                  char **orig_i, char ***ret_newargv);
+                  char **orig_i, char ***ret_newargv,
+                  const char **forced_cpp_ext);
 int dcc_expand_preprocessor_options(char ***argv_ptr);
 
 /* argutil.c */
