@@ -109,8 +109,7 @@ CPP_OPTIONS_MAYBE_TWO_WORDS = {
   '-imultilib':     lambda ps, arg: _RaiseNotImplemented('-imultilib'),
   '-isystem':       lambda ps, arg: ps.before_system_dirs.append(arg),
   '-iquote':        lambda ps, arg: ps.quote_dirs.append(arg),
-#  '--sysroot=':     lambda ps, arg: ps.set_sysroot(arg),
-  '--sysroot=':     lambda ps, arg: None,
+  '--sysroot=':     lambda ps, arg: ps.set_sysroot(arg),
 }
 CPP_OPTIONS_MAYBE_TWO_WORDS_FIRST_LETTERS = ('M', 'a', 'i', '-')
 # A "compile-time" check to make sure the first-letter list is up-to-date
