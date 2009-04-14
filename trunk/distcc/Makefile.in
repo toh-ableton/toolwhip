@@ -248,6 +248,7 @@ common_obj = src/arg.o src/argutil.o					\
 	src/dotd.o 							\
 	src/hosts.o src/hostfile.o					\
 	src/implicit.o src/loadfile.o					\
+	src/xci_utils.o							\
 	lzo/minilzo.o                                                   \
 	@ZEROCONF_COMMON_OBJS@
 
@@ -271,7 +272,7 @@ distccd_obj = src/access.o						\
 	src/stringmap.o							\
 	src/serve.o src/setuid.o src/srvnet.o src/srvrpc.o src/state.o	\
 	src/stats.o							\
-	src/xci_utils.o src/xci_versinfo.o src/xci_zeroconf.o		\
+	src/xci_versinfo.o src/xci_zeroconf.o				\
 	src/fix_debug_info.o						\
 	@ZEROCONF_DISTCCD_OBJS@						\
 	$(common_obj) @BUILD_POPT@

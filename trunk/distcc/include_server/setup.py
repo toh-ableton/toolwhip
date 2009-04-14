@@ -156,6 +156,7 @@ ext = distutils.extension.Extension(
               'src/emaillog.c',
               'src/timeval.c',
               'src/netutil.c',
+              'src/xci_utils.c',
               'lzo/minilzo.c',
               'include_server/c_extensions/distcc_pump_c_extensions_module.c',
              ]],

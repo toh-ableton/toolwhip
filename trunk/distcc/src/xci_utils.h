@@ -27,10 +27,14 @@
 #define DISTCC_XCI_UTILS_H_
 
 #ifdef XCODE_INTEGRATION
+
 /* xci_utils.c */
 char *dcc_xci_read_whole_file(FILE *file, size_t *len);
 char *dcc_xci_run_command(const char *command_line);
 char *dcc_xci_xcodeselect_path(void);
-#endif
+char *dcc_xci_mask_developer_dir(const char *path);
+char *dcc_xci_unmask_developer_dir(const char *path);
+
+#endif /* XCODE_INTEGRATION */
 
 #endif /* DISTCC_XCI_UTILS_H_ */
