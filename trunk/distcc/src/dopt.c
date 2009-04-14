@@ -315,26 +315,6 @@ int distccd_parse_options(int argc, const char **argv)
              * locally-installed compilers, and distcc version.  (The
              * localhost" argument is ignored.) */
 
-#ifdef __APPLE__
-            /* Xcode uses "distccd --host-info" to obtain compiler information
-             * and expects to be given a list of compilers located within the
-             * xcode-select path.  However, it does not set
-             * USE_XCODE_SELECT_PATH.  Due to a bug in Apple's distcc fork,
-             * dcc_send_host_info historically happened to usually behave as
-             * this environment variable was set anyway.  Because the set of
-             * compilers in / and the xcode-select path may be different (the
-             * former never contains llvm-gcc), we can't just let this slide,
-             * we need to force the xcode-select path here too.
-             *
-             * This is within #ifdef __APPLE__ because USE_XCODE_SELECT_PATH
-             * may not make any sense on non-Macs where it forces the use of
-             * a hard-coded default that may not be desired.
-             *
-             * For a long-term solution, Xcode should set
-             * USE_XCODE_SELECT_PATH=1 when running "distccd --host-info". */
-            setenv("USE_XCODE_SELECT_PATH", "1", 1);
-#endif /* __APPLE__ */
-
             if ((host_info = dcc_xci_host_info_string())) {
                 printf("%s", host_info);
                 exitcode = 0;
