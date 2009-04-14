@@ -52,7 +52,6 @@ Things to point out to apple
   * the gcc version must also bump if the sdks change in any way due to how system headers are moved over the wire, they need to match between all machines so they see the same headers.
   * When Xcode calls "distccd --host-info localhost" to obtain local system and compiler info, it needs to set the USE_XCODE_SELECT_PATH environment variable.  Presently, it does not, and only gets a list of compilers from the xcode-select path because of a bug (reading uninitialized memory) in their distcc fork.  toolwhip distccd contains a workaround for this (see the __APPLE__ section in distcc/src/dopt.c) which I'd eventually like to remove.
   * The way xcode picks slaves needs to take into account SDKs now:
-need is this:
      * if no SDK set in xcode project/target, only pick machines on the same major OS version.
      * if SDK set in xcode project/target, then as picking hosts only pick hosts that have that SDK installed.
 
