@@ -93,7 +93,7 @@
 #include "fix_debug_info.h"
 
 #ifdef XCODE_INTEGRATION
-  #include "xci_versinfo.h"
+#  include "xci_versinfo.h"
 #endif
 
 /**
@@ -611,6 +611,7 @@ static int dcc_run_job(int in_fd,
             goto out_cleanup;
 
     if ((ret = dcc_r_argv(in_fd, &argv))
+        || (ret = dcc_xci_unmask_developer_dir_in_argv(argv))
         || (ret = dcc_scan_args(argv, &orig_input_tmp, &orig_output_tmp,
                                 &tweaked_argv, &dcc_optx_ext)))
         goto out_cleanup;

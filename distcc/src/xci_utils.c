@@ -35,7 +35,9 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "distcc.h"
 #include "trace.h"
+#include "util.h"
 #include "xci_utils.h"
 
 /**
@@ -218,6 +220,40 @@ char *dcc_xci_xcodeselect_path(void) {
     if (output)
         free(output);
     return NULL;
+}
+
+/* dcc_xci_mask_developer_dir() & dcc_xci_unmask_developer_dir()
+ *
+ * We replace the system's Xcode developer dir with a token that could work as
+ * a path, the receiving side then looks for the token and puts that system's
+ * Xcode developer dir back in, and the build can handle different install
+ * locations for Xcode developer tools.
+ */
+
+/* We use a token for the below that is valid path characters in case it ever
+ * gets sent to a build without Xcode integration support. */
+static const char xci_dev_dir_token[] = "/_^_XCODE_DEV_DIRECTORY_^_";
+
+char *dcc_xci_mask_developer_dir(const char *path) {
+    const char *xci_dev_dir = dcc_xci_xcodeselect_path();
+    /* dcc_replace_substring will return NULL if it gets any NULL arg */
+    char *result = dcc_replace_substring(path, xci_dev_dir, xci_dev_dir_token);
+    if (!result) {
+      rs_log_error("failed to create new string for developer dir processing "
+                   "\"%s\".", path);
+    }
+    return result;
+}
+
+char *dcc_xci_unmask_developer_dir(const char *path) {
+    const char *xci_dev_dir = dcc_xci_xcodeselect_path();
+    /* dcc_replace_substring will return NULL if it gets any NULL arg */
+    char *result = dcc_replace_substring(path, xci_dev_dir_token, xci_dev_dir);
+    if (!result) {
+        rs_log_error("failed to create new string for developer dir processing "
+                     "\"%s\".", path);
+    }
+    return result;
 }
 
 #endif /* XCODE_INTEGRATION */

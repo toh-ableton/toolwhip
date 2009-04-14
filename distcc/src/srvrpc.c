@@ -48,6 +48,9 @@
 #include "hosts.h"
 #include "bulk.h"
 #include "snprintf.h"
+#ifdef XCODE_INTEGRATION
+#  include "xci_utils.h"
+#endif
 
 int dcc_r_request_header(int ifd,
                          enum dcc_protover *ver_ret)
@@ -103,9 +106,16 @@ int dcc_r_many_files(int in_fd,
     int ret = 0;
     unsigned int n_files;
     unsigned int i;
-    char *name = 0;
-    char *link_target = 0;
+    char *name = NULL;
+    char *link_target = NULL;
     char token[5];
+
+#ifdef XCODE_INTEGRATION
+    /* NOTE: If this function is ever used for something besides pump
+     * mode support for receiving things to be compiled, then it should
+     * take another argument to include/exclude this fixup. */
+    char *xci_name, *xci_link_target;
+#endif
 
     if ((ret = dcc_r_token_int(in_fd, "NFIL", &n_files)))
         return ret;
@@ -116,6 +126,18 @@ int dcc_r_many_files(int in_fd,
 
         if ((ret = dcc_r_token_string(in_fd, "NAME", &name)))
             goto out_cleanup;
+
+#ifdef XCODE_INTEGRATION
+        xci_name = dcc_xci_unmask_developer_dir(name);
+        if (xci_name) {
+            free(name);
+            name = xci_name;
+            xci_name = NULL;
+        } else {
+            ret = EXIT_OUT_OF_MEMORY;
+            goto out_cleanup;
+        }
+#endif
 
         /* FIXME: verify that name starts with '/' and doesn't contain '..'. */
         if ((ret = prepend_dir_to_name(dirname, &name)))
@@ -130,6 +152,20 @@ int dcc_r_many_files(int in_fd,
             if ((ret = dcc_r_str_alloc(in_fd, link_or_file_len, &link_target))){
                 goto out_cleanup;
             }
+            rs_trace("got '%s'", link_target);
+
+#ifdef XCODE_INTEGRATION
+            xci_link_target = dcc_xci_unmask_developer_dir(link_target);
+            if (xci_link_target) {
+                free(link_target);
+                link_target = xci_link_target;
+                xci_link_target = NULL;
+            } else {
+                ret = EXIT_OUT_OF_MEMORY;
+                goto out_cleanup;
+            }
+#endif
+          
             /* FIXME: verify that link_target doesn't contain '..'.
              * But the include server uses '..' to reference system
              * directories (see _MakeLinkFromMirrorToRealLocation
@@ -179,10 +215,14 @@ int dcc_r_many_files(int in_fd,
         }
 
 out_cleanup:
-        free(name);
-        name = NULL;
-        free(link_target);
-        link_target = NULL;
+        if (name) {
+            free(name);
+            name = NULL;
+        }
+        if (link_target) {
+            free(link_target);
+            link_target = NULL;
+        }
         if (ret)
             break;
     }

@@ -116,26 +116,6 @@ static int dcc_wait_for_cpp(pid_t cpp_pid,
     return 0;
 }
 
-/* Unlike dcc_copy_argv, this doesn't copy the strings */
-static int dcc_shallow_copy_argv(char **from, char ***out) {
-    char **b;
-    int l, i;
-
-    l = dcc_argv_len(from);
-    b = malloc((l+1) * (sizeof from[0]));
-    if (b == NULL) {
-        rs_log_error("failed to allocate copy of argv");
-        return EXIT_OUT_OF_MEMORY;
-    }
-    for (i = 0; i < l; i++)
-        b[i] = from[i];
-    b[l] = NULL;
-
-    *out = b;
-  
-    return 0;
-}
-
 static const char *dcc_map_optx_language_for_cpp(const char *language) {
     /* These are the only types we allowed in arg.c */
     
@@ -171,7 +151,15 @@ dcc_send_header(int net_fd,
 {
     int ret, i;
     char **new_argv = NULL;
+    const char *new_lang;
 
+    /* Make a copy so we can mask the Xcode developer dir (no op without
+     * that support enabled */
+    if ((ret = dcc_copy_argv(argv, &new_argv, 0)))
+        return ret;
+    if ((ret = dcc_xci_mask_developer_dir_in_argv(new_argv)))
+        return ret;
+  
     tcp_cork_sock(net_fd, 1);
 
     if ((ret = dcc_x_req_header(net_fd, host->protover)))
@@ -180,35 +168,36 @@ dcc_send_header(int net_fd,
         if ((ret = dcc_x_cwd(net_fd)))
             goto out_error;
     } else if (host->cpp_where == DCC_CPP_ON_CLIENT) {
-        /* Fix up the -x argument in argv, if any, to account for preprocessing
-         * having been done. */
-        if ((ret = dcc_shallow_copy_argv(argv, &new_argv)))
-            goto out_error;
+        /* Fix up the -x argument in new_argv, if any, to account for
+         * preprocessing having been done. */
         for (i = 0; new_argv[i]; i++) {
             if (!strcmp(new_argv[i], "-x") && new_argv[i+1]) {
-                new_argv[i+1] =
-                    (char*)dcc_map_optx_language_for_cpp(new_argv[i+1]);
-                if (new_argv[i+1] == NULL) {
+                new_lang = dcc_map_optx_language_for_cpp(new_argv[i+1]);
+                if (!new_lang) {
                     rs_log_error("got unsupported -x language");
                     ret = EXIT_DISTCC_FAILED;
+                    goto out_error;
+                }
+                new_argv[i+1] = strdup(new_lang);
+                if (new_argv[i+1]) {
+                    rs_log_error("failed to duplicate string");
+                    ret = EXIT_OUT_OF_MEMORY;
                     goto out_error;
                 }
                 break;
             }
         }
-        argv = new_argv;
     }
-    if ((ret = dcc_x_argv(net_fd, argv))) {
+    if ((ret = dcc_x_argv(net_fd, new_argv))) {
         goto out_error;
     }
 
-    if (new_argv)
-        free(new_argv);
+    dcc_free_argv(new_argv);
     return 0;
   
   out_error:
     if (new_argv)
-        free(new_argv);
+        dcc_free_argv(new_argv);
     return ret;
 }
 

@@ -82,7 +82,9 @@
 #include "util.h"
 #include "exitcode.h"
 #include "snprintf.h"
-
+#ifdef XCODE_INTEGRATION
+#  include "xci_utils.h"
+#endif
 
 int dcc_argv_append(char **argv, char *toadd)
 {
@@ -568,5 +570,48 @@ int dcc_expand_preprocessor_options(char ***argv_ptr) {
             *argv_ptr = argv = new_argv;
         }
     }
+    return 0;
+}
+
+/* dcc_xci_mask_developer_dir_in_argv(), dcc_xci_unmask_developer_dir_in_argv()
+ *
+ * Loops through the args masking/unmasking the xcode developer dir.  The
+ * functions are a noop if XCODE_INTEGRATION is not defined.
+ */
+int dcc_xci_mask_developer_dir_in_argv(char **argv) {
+    if (!argv)
+        return EXIT_BAD_ARGUMENTS;
+#ifdef XCODE_INTEGRATION
+    int i;
+    char *arg, *new_arg;
+    for (i = 0; (arg = argv[i]); i++) {
+        new_arg = dcc_xci_mask_developer_dir(arg);
+        if (new_arg) {
+            free(arg);
+            argv[i] = new_arg;
+        } else {
+            return EXIT_OUT_OF_MEMORY;
+        }
+    }
+#endif
+    return 0;
+}
+
+int dcc_xci_unmask_developer_dir_in_argv(char **argv) {
+    if (!argv)
+        return EXIT_BAD_ARGUMENTS;
+#ifdef XCODE_INTEGRATION
+    int i;
+    char *arg, *new_arg;
+    for (i = 0; (arg = argv[i]); i++) {
+        new_arg = dcc_xci_unmask_developer_dir(arg);
+        if (new_arg) {
+            free(arg);
+            argv[i] = new_arg;
+        } else {
+            return EXIT_OUT_OF_MEMORY;
+        }
+    }
+#endif
     return 0;
 }
