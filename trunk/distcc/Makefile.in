@@ -299,6 +299,7 @@ gnome_obj = src/history.o src/mon-gnome.o				\
 
 h_exten_obj = src/h_exten.o $(common_obj)
 h_issource_obj = src/h_issource.o $(common_obj)
+h_repsubstr_obj = src/h_repsubstr.o $(common_obj)
 h_scanargs_obj = src/h_scanargs.o $(common_obj)
 h_hosts_obj = src/h_hosts.o $(common_obj)
 h_argvtostr_obj = src/h_argvtostr.o $(common_obj)
@@ -325,7 +326,7 @@ SRC =	src/stats.c							\
 	src/h_argvtostr.c						\
 	src/h_exten.c src/h_hosts.c src/h_issource.c src/h_parsemask.c	\
 	src/h_sa2str.c src/h_scanargs.c src/h_strip.c			\
-	src/h_dotd.c src/h_compile.c                                    \
+	src/h_dotd.c src/h_compile.c h_repsubstr.c                      \
 	src/help.c src/history.c src/hosts.c src/hostfile.c		\
 	src/implicit.c src/io.c						\
 	src/loadfile.c src/lock.c 					\
@@ -425,6 +426,7 @@ check_PROGRAMS = \
 	h_fix_debug_info@EXEEXT@ \
 	h_hosts@EXEEXT@ \
 	h_issource@EXEEXT@ \
+	h_repsubstr@EXEEXT@ \
 	h_parsemask@EXEEXT@ \
 	h_sa2str@EXEEXT@ \
 	h_scanargs@EXEEXT@ \
@@ -513,6 +515,9 @@ h_exten@EXEEXT@: $(h_exten_obj)
 
 h_issource@EXEEXT@: $(h_issource_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(h_issource_obj) $(LIBS)
+
+h_repsubstr@EXEEXT@: $(h_repsubstr_obj)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(h_repsubstr_obj) $(LIBS)
 
 h_sa2str@EXEEXT@: $(h_sa2str_obj)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(h_sa2str_obj) $(LIBS)

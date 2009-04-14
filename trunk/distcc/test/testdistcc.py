@@ -469,6 +469,45 @@ class IsSource_Case(SimpleDistCC_Case):
                                      (f, `o`, `expected`))
 
 
+class ReplaceSubstring_Case(SimpleDistCC_Case):
+    def runtest(self):
+        """Test distcc's method for replacing substrings"""
+        cases = (( "",       "x",    "y",    "" ),
+                 ( "abc",    "x",    "y",    "abc" ),
+
+                 ( "abc",    "a",    "y",    "ybc" ),
+                 ( "abc",    "a",    "",     "bc" ),
+                 ( "abc",    "a",    "yy",   "yybc" ),
+
+                 ( "abc",    "b",    "y",    "ayc" ),
+                 ( "abc",    "b",    "",     "ac" ),
+                 ( "abc",    "b",    "yy",   "ayyc" ),
+
+                 ( "abc",    "c",    "y",    "aby" ),
+                 ( "abc",    "c",    "",     "ab" ),
+                 ( "abc",    "c",    "yy",   "abyy" ),
+
+                 ( "aa",     "a",    "yy",   "yyyy" ),
+                 ( "baab",   "a",    "yy",   "byyyyb" ),
+                 ( "aaaaa",  "aa",   "y",    "yya" ),
+
+                 ( "aa",     "aa",   "yyy",  "yyy" ),
+
+                 ( "abbbc",  "bb",   "b",    "abbc" ),
+
+                 ( "ababa",  "b",    "",     "aaa" ),
+                 ( "ababa",  "a",    "",     "bb" ),
+                 ( "ababab", "ab",   "",     "" ),
+
+                 ( "ababa",  "b",    "yy",   "ayyayya" ),
+                 ( "ababa",  "a",    "yy",   "yybyybyy" ))
+        for s, f, r, e in cases:
+            o, err = self.runcmd("h_repsubstr '%s' '%s' '%s'" % (s, f, r))
+            expected = ("%s\n" % (e))
+            if o != expected:
+                raise AssertionError("replace_substring '%s' '%s' '%s' gave %s, expected %s" %
+                                     (s, f, r, `o`, `expected`))
+
 
 class ScanArgs_Case(SimpleDistCC_Case):
     '''Test understanding of gcc command lines.'''
@@ -2429,6 +2468,7 @@ tests = [
          MultipleCompile_Case,
          GccOptionsPassed_Case,
          IsSource_Case,
+         ReplaceSubstring_Case,
          ExtractExtension_Case,
          ImplicitCompiler_Case,
          DaemonBadPort_Case,
