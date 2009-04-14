@@ -806,9 +806,9 @@ char *dcc_replace_substring(const char *s,
     int s_left;
     int buf_pos = 0, buf_size = 0;
     char *buf = NULL, *new_buf;
-    const char *scan = s, *next;
+    const char *next;
     int replace_len, find_len;
-    int left_in_buf, space_needed;
+    int len_change;
 
     if (!s || !find || !replace) {
         rs_log_error("got NULL arguments");
@@ -822,6 +822,13 @@ char *dcc_replace_substring(const char *s,
         rs_log_error("Asked to replace an empty string");
         goto out_error;
     }
+    
+    /* This is the number of chars we'll need to add each time we do
+     * a replacement.  If replace is shorter then find, we'll catch it
+     * with a final realloc when done. */
+    len_change = replace_len - find_len;
+    if (len_change < 0)
+        len_change = 0;
 
     s_left = strlen(s);
     buf_size = s_left + 1;
@@ -833,11 +840,9 @@ char *dcc_replace_substring(const char *s,
     }
 
     /* Loop on matches */
-    while ((next = strstr(scan, find))) {
-        left_in_buf = (buf_size - 1) - buf_pos;
-        space_needed = (next - scan) + replace_len;
-        if (space_needed > left_in_buf) {
-            buf_size += space_needed - left_in_buf;
+    while ((next = strstr(s, find))) {
+        if (len_change) {
+            buf_size += len_change;
             new_buf = realloc(buf, buf_size * sizeof(char));
             if (!new_buf) {
                 rs_log_error("realloc(%ld) failed: %s",
@@ -846,34 +851,38 @@ char *dcc_replace_substring(const char *s,
             }
             buf = new_buf;
         }
-        strncpy(buf + buf_pos, scan, next - scan);
-        buf_pos += (next - scan);
-        s_left -= (next - scan);
+        strncpy(buf + buf_pos, s, next - s);
+        buf_pos += (next - s);
+        s_left -= (next - s);
         strcpy(buf + buf_pos, replace);
         buf_pos += replace_len;
 
-        scan = next + find_len;
+        s = next + find_len;
     }
     
     /* Copy over what was left after the last replacement. */
     if (s_left) {
-        left_in_buf = (buf_size - 1) - buf_pos;
-        if (s_left > left_in_buf) {
-            buf_size += s_left - left_in_buf;
-            new_buf = realloc(buf, buf_size * sizeof(char));
-            if (!new_buf) {
-                rs_log_error("realloc(%ld) failed: %s",
-                             buf_size * sizeof(char), strerror(errno));
-                goto out_error;
-            }
-            buf = new_buf;
-        } 
-        strcpy(buf + buf_pos, scan);
+        strcpy(buf + buf_pos, s);
         buf_pos += s_left;
     }
 
     /* Terminate it. */
-    buf[buf_pos + 1] = '\0';
+    buf[buf_pos++] = '\0';
+    
+    /* If we shrunk the string, do a final realloc to downsize it
+     * to be the right length.  But, we don't fail if this doesn't
+     * work because the string will still be ok, just using more
+     * memory then needed. */
+    if (buf_pos < buf_size) {
+        buf_size = buf_pos;
+        new_buf = realloc(buf, buf_size * sizeof(char));
+        if (new_buf) {
+            buf = new_buf;
+        } else {
+            rs_log_info("realloc(%ld) failed: %s",
+                        buf_size * sizeof(char), strerror(errno));
+        }
+    }
 
     return buf;
 
