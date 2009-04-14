@@ -46,7 +46,9 @@
 #include "exitcode.h"
 
 struct context {
+    int advertise_capabilities;
     char *name;
+    char *service_type;
     AvahiThreadedPoll *threaded_poll;
     AvahiClient *client;
     AvahiEntryGroup *group;
@@ -61,18 +63,22 @@ static void register_stuff(struct context *ctx) {
     if (!ctx->group) {
 
         if (!(ctx->group = avahi_entry_group_new(ctx->client, publish_reply, ctx))) {
-            rs_log_crit("Failed to create entry group: %s\n", avahi_strerror(avahi_client_errno(ctx->client)));
+            rs_log_crit("Failed to create entry group: %s", avahi_strerror(avahi_client_errno(ctx->client)));
             goto fail;
         }
 
     }
 
     if (avahi_entry_group_is_empty(ctx->group)) {
-        char cpus[32], machine[64] = "cc_machine=", version[64] = "cc_version=", *m, *v;
+        char cpus[32] = "";
+        char machine[64] = "cc_machine=", version[64] = "cc_version=";
+        char *m = NULL, *v = NULL;
 
-        snprintf(cpus, sizeof(cpus), "cpus=%i", ctx->n_cpus);
-        v = dcc_get_gcc_version(version+11, sizeof(version)-11);
-        m = dcc_get_gcc_machine(machine+11, sizeof(machine)-11);
+        if (ctx->advertise_capabilities) {
+            snprintf(cpus, sizeof(cpus), "cpus=%i", ctx->n_cpus);
+            v = dcc_get_gcc_version(version+11, sizeof(version)-11);
+            m = dcc_get_gcc_machine(machine+11, sizeof(machine)-11);
+        }
 
         /* Register our service */
 
@@ -82,43 +88,45 @@ static void register_stuff(struct context *ctx) {
                     AVAHI_PROTO_UNSPEC,
                     0,
                     ctx->name,
-                    DCC_DNS_SERVICE_TYPE,
+                    ctx->service_type,
                     NULL,
                     NULL,
                     ctx->port,
-                    "txtvers=1",
+                    !ctx->advertise_capabilities ? NULL : "txtvers=1",
                     cpus,
                     "distcc="PACKAGE_VERSION,
                     "gnuhost="GNU_HOST,
                     v ? version : NULL,
                     m ? machine : NULL,
                     NULL) < 0) {
-            rs_log_crit("Failed to add service: %s\n", avahi_strerror(avahi_client_errno(ctx->client)));
+            rs_log_crit("Failed to add service: %s", avahi_strerror(avahi_client_errno(ctx->client)));
             goto fail;
         }
 
-        if (v && m) {
-            char stype[128];
+        if (ctx->advertise_capabilities) {
+            if (v && m) {
+                char stype[128];
 
-            dcc_make_dnssd_subtype(stype, sizeof(stype), v, m);
+                dcc_make_dnssd_subtype(stype, sizeof(stype), v, m);
 
-            if (avahi_entry_group_add_service_subtype(
-                        ctx->group,
-                        AVAHI_IF_UNSPEC,
-                        AVAHI_PROTO_UNSPEC,
-                        0,
-                        ctx->name,
-                        DCC_DNS_SERVICE_TYPE,
-                        NULL,
-                        stype) < 0) {
-                rs_log_crit("Failed to add service: %s\n", avahi_strerror(avahi_client_errno(ctx->client)));
-                goto fail;
-            }
-        } else
-            rs_log_warning("Failed to determine CC version, not registering DNS-SD service subtype!");
+                if (avahi_entry_group_add_service_subtype(
+                            ctx->group,
+                            AVAHI_IF_UNSPEC,
+                            AVAHI_PROTO_UNSPEC,
+                            0,
+                            ctx->name,
+                            ctx->service_type,
+                            NULL,
+                            stype) < 0) {
+                    rs_log_crit("Failed to add service: %s", avahi_strerror(avahi_client_errno(ctx->client)));
+                    goto fail;
+                }
+            } else
+                rs_log_warning("Failed to determine CC version, not registering DNS-SD service subtype!");
+        }
 
         if (avahi_entry_group_commit(ctx->group) < 0) {
-            rs_log_crit("Failed to commit entry group: %s\n", avahi_strerror(avahi_client_errno(ctx->client)));
+            rs_log_crit("Failed to commit entry group: %s", avahi_strerror(avahi_client_errno(ctx->client)));
             goto fail;
         }
 
@@ -152,13 +160,19 @@ static void publish_reply(AvahiEntryGroup *UNUSED(g), AvahiEntryGroupState state
         }
 
         case AVAHI_ENTRY_GROUP_FAILURE:
-            rs_log_crit("Failed to register service: %s\n", avahi_strerror(avahi_client_errno(ctx->client)));
+            rs_log_crit("Failed to register service: %s", avahi_strerror(avahi_client_errno(ctx->client)));
             avahi_threaded_poll_quit(ctx->threaded_poll);
+            break;
+
+        case AVAHI_ENTRY_GROUP_ESTABLISHED:
+            rs_log_info("registered as \"%s.%s.%s\"",
+                        avahi_client_get_host_name(ctx->client),
+                        ctx->service_type,
+                        avahi_client_get_domain_name(ctx->client));
             break;
 
         case AVAHI_ENTRY_GROUP_UNCOMMITED:
         case AVAHI_ENTRY_GROUP_REGISTERING:
-        case AVAHI_ENTRY_GROUP_ESTABLISHED:
             ;
     }
 }
@@ -201,12 +215,12 @@ static void client_callback(AvahiClient *client, AvahiClientState state, void *u
                               ctx,
                               &error))) {
 
-                    rs_log_crit("Failed to contact server: %s\n", avahi_strerror(error));
+                    rs_log_crit("Failed to contact server: %s", avahi_strerror(error));
                     avahi_threaded_poll_quit(ctx->threaded_poll);
                 }
 
             } else {
-                rs_log_crit("Client failure: %s\n", avahi_strerror(avahi_client_errno(client)));
+                rs_log_crit("Client failure: %s", avahi_strerror(avahi_client_errno(client)));
                 avahi_threaded_poll_quit(ctx->threaded_poll);
             }
 
@@ -217,40 +231,77 @@ static void client_callback(AvahiClient *client, AvahiClientState state, void *u
     }
 }
 
-/* register a distcc service in DNS-SD/mDNS with the given port and number of CPUs */
-void* dcc_zeroconf_register(uint16_t port, int n_cpus) {
+/* Register a distcc service in DNS-SD/mDNS.  If advertise_capabilities is
+ * true, the registration will contain information about the distcc server's
+ * capabilities.  If service_type is NULL, the default service type will be
+ * used.  advertise_capabilities should be true when using the default
+ * service type. */
+void* dcc_zeroconf_register_extended(int advertise_capabilities,
+                                     const char *service_type,
+                                     uint16_t port,
+                                     int n_cpus) {
     struct context *ctx = NULL;
-    char service[256] = "distcc@";
-    int error;
+    char hostname[_POSIX_HOST_NAME_MAX + 1];
+    const AvahiPoll *threaded_poll;
+    int len, error;
 
-    ctx = malloc(sizeof(struct context));
-    assert(ctx);
-    ctx->client = NULL;
-    ctx->group = NULL;
-    ctx->threaded_poll = NULL;
-    ctx->port = port;
-    ctx->n_cpus = n_cpus;
-
-    /* Prepare service name */
-    gethostname(service+7, sizeof(service)-8);
-    service[sizeof(service)-1] = 0;
-
-    ctx->name = strdup(service);
-    assert(ctx->name);
-
-    if (!(ctx->threaded_poll = avahi_threaded_poll_new())) {
-        rs_log_crit("Failed to create event loop object.\n");
+    ctx = calloc(1, sizeof(struct context));
+    if (!ctx) {
+        rs_log_crit("calloc() failed for ctx: %s", strerror(errno));
         goto fail;
     }
 
-    if (!(ctx->client = avahi_client_new(avahi_threaded_poll_get(ctx->threaded_poll), AVAHI_CLIENT_NO_FAIL, client_callback, ctx, &error))) {
-        rs_log_crit("Failed to create client object: %s\n", avahi_strerror(avahi_client_errno(ctx->client)));
+    ctx->advertise_capabilities = advertise_capabilities;
+    ctx->port = port;
+    ctx->n_cpus = n_cpus;
+
+    /* Prepare service type.  Use the supplied value, or the default if
+     * NULL was supplied. */
+    if (service_type)
+        ctx->service_type = strdup(service_type);
+    else
+        ctx->service_type = strdup(DCC_DNS_SERVICE_TYPE);
+    if (!ctx->service_type) {
+        rs_log_crit("strdup() failed for ctx->service_type: %s",
+                    strerror(errno));
+        goto fail;
+    }
+
+    /* Prepare service name.  This is just the chosen service type with
+     * '@' and the hostname appended.  If this collides with anything else,
+     * avahi_alternative_service_name will choose a replacement name. */
+    if (gethostname(hostname, sizeof(hostname))) {
+        rs_log_crit("gethostname() failed: %s", strerror(errno));
+        goto fail;
+    }
+
+    /* Leave room for the '@' and trailing NUL. */
+    len = strlen(ctx->service_type) + strlen(hostname) + 2;
+    if (!(ctx->name = avahi_malloc(len))) {
+        rs_log_crit("avahi_malloc() failed for ctx->name");
+        goto fail;
+    }
+
+    snprintf(ctx->name, len, "%s@%s", ctx->service_type, hostname);
+
+    /* Create the Avahi client. */
+    if (!(ctx->threaded_poll = avahi_threaded_poll_new())) {
+        rs_log_crit("Failed to create event loop object.");
+        goto fail;
+    }
+
+    threaded_poll = avahi_threaded_poll_get(ctx->threaded_poll);
+
+    if (!(ctx->client = avahi_client_new(threaded_poll, AVAHI_CLIENT_NO_FAIL,
+                                         client_callback, ctx, &error))) {
+        rs_log_crit("Failed to create client object: %s",
+                    avahi_strerror(error));
         goto fail;
     }
 
     /* Create the mDNS event handler */
     if (avahi_threaded_poll_start(ctx->threaded_poll) < 0) {
-        rs_log_crit("Failed to create thread.\n");
+        rs_log_crit("Failed to create thread.");
         goto fail;
     }
 
@@ -262,6 +313,12 @@ fail:
         dcc_zeroconf_unregister(ctx);
 
     return NULL;
+}
+
+/* Register a distcc service in DNS-SD/mDNS with the given port and number of
+ * CPUs.  Advertise capabilities and use the default service name. */
+void* dcc_zeroconf_register(uint16_t port, int n_cpus) {
+    return dcc_zeroconf_register_extended(1, NULL, port, n_cpus);
 }
 
 /* Unregister this server from DNS-SD/mDNS */
@@ -277,7 +334,11 @@ int dcc_zeroconf_unregister(void *u) {
     if (ctx->threaded_poll)
         avahi_threaded_poll_free(ctx->threaded_poll);
 
-    avahi_free(ctx->name);
+    if (ctx->name)
+        avahi_free(ctx->name);
+
+    if (ctx->service_type)
+        free(ctx->service_type);
 
     free(ctx);
 
