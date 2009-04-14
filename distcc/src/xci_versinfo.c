@@ -203,12 +203,12 @@ static const char *dcc_xci_get_distcc_version(void) {
 }
 
 /**
- * Returns the appropriate prefix directory, which is the directory that
- * was chosen as --prefix at configure time.  The default is "/usr/local".
- * If the USE_XCODE_SELECT_PATH environment variable  is set to 1, the prefix
- * directory is within the xcode-select path.  For distcc configured with
- * --prefix=/usr and USE_XCODE_SELECT_PATH set, this might return
- * "/Developer/usr".
+ * Returns the appropriate prefix directory within the Xcode developer
+ * directory.  The Xcode developer dir is collected from xcode-select.  The
+ * prefix directory is what was chosen as --prefix at configure time.  The
+ * default is "/usr/local".  For distcc configured with
+ * --prefix=/usr and Xcode developer tools installed in the default
+ * location of "/Developer", this will return "/Developer/usr".
  *
  * The returned value must be disposed of with free().
  *
@@ -219,12 +219,10 @@ static char *dcc_xci_selected_prefix(void) {
     char *selected_prefix = NULL;
     int len = 0;
 
-    if (dcc_getenv_bool("USE_XCODE_SELECT_PATH", 0)) {
-        xcodeselect_path = dcc_xci_xcodeselect_path();
-        if (!xcodeselect_path)
-            goto out_error;
-        len = strlen(xcodeselect_path);
-    }
+    xcodeselect_path = dcc_xci_xcodeselect_path();
+    if (!xcodeselect_path)
+        goto out_error;
+    len = strlen(xcodeselect_path);
 
     selected_prefix = realloc(xcodeselect_path, len + sizeof(PREFIXDIR));
     if (!selected_prefix) {
