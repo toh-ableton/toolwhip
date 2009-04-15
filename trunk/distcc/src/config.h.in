@@ -47,6 +47,9 @@
    don't. */
 #undef HAVE_DECL_VSNPRINTF
 
+/* Defined to use Bonjour DNS_SD */
+#undef HAVE_DNSSD
+
 /* Define to 1 if you have the <elf.h> header file. */
 #undef HAVE_ELF_H
 

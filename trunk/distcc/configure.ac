@@ -505,9 +505,11 @@ AC_ARG_WITH(avahi,
         AC_HELP_STRING([--without-avahi], [build without avahi]))
 
 dnl check for avahi
+have_avahi=no
 if test x"$with_avahi" != xno; then
     PKG_CHECK_MODULES(AVAHI, [avahi-client >= 0.6],
     [AC_DEFINE(HAVE_AVAHI, 1, [defined if Avahi is available])
+    have_avahi=yes
     CFLAGS="$CFLAGS $AVAHI_CFLAGS"
     LIBS="$LIBS $AVAHI_LIBS"
     ZEROCONF_COMMON_OBJS="src/zeroconf.o src/gcc-id.o"
@@ -519,6 +521,13 @@ if test x"$with_avahi" != xno; then
     AC_SUBST(ZEROCONF_COMMON_OBJS)
     AC_SUBST(ZEROCONF_DISTCC_OBJS)
     AC_SUBST(ZEROCONF_DISTCCD_OBJS)
+fi
+
+dnl Check for dns_sd if Avahi is not present and Xcode integration is desired
+if test x"$have_avahi" = xno && test x"$enable_xcode_integration" = xyes ; then
+    AC_CHECK_HEADER(dns_sd.h,
+        [AC_SEARCH_LIBS(DNSServiceRegister, [dns_sd],
+            [AC_DEFINE(HAVE_DNSSD, 1, [Defined to use Bonjour DNS_SD])])])
 fi
 
 ACX_PTHREAD
