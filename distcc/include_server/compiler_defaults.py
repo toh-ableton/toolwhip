@@ -160,7 +160,7 @@ def _MakeLinkFromMirrorToRealLocation(system_dir, client_root, system_links):
   system_links.append(rooted_system_dir)
 
 
-def _SystemSearchdirsGCC(compiler, language, canonical_lookup):
+def _SystemSearchdirsGCC(compiler, language, sysroot_args, canonical_lookup):
   """Run gcc on empty file; parse output to figure out default paths.
 
   This function works only for gcc, and only some versions at that.
@@ -168,6 +168,7 @@ def _SystemSearchdirsGCC(compiler, language, canonical_lookup):
   Arguments:
     compiler: a filepath (the first argument on the distcc command line)
     language: 'c' or 'c++' or other item in basics.LANGUAGES
+    sysroot_args: list of -isysroot or --sysroot args for gcc's command line.
     canonical_lookup: a function that maps strings to their realpaths
   Returns:
     list of system search dirs for this compiler and language
@@ -189,8 +190,8 @@ def _SystemSearchdirsGCC(compiler, language, canonical_lookup):
   # blah. blah.
   #------------
 
-  command = [compiler, "-x", language, "-v", "-c", "/dev/null", "-o",
-             "/dev/null"]
+  command = [compiler, "-x", language ] + sysroot_args + [ "-v", "-c",
+             "/dev/null", "-o", "/dev/null"]
 
   try:
     # We clear the environment, because otherwise, directories
@@ -327,7 +328,7 @@ class CompilerDefaults(object):
         system_dirs_real_paths[c][lang] is a list of directory paths
         (strings) for compiler c and language lang
       system_dirs_default: a list of all such strings, subjected to
-        realpath-ification, for all c and lang
+        realpath-ification, for all c, lang, and sysroot
       client_root: a path such as /dev/shm/tmpX.include_server-X-1
       system_links: locations under client_root representing system default dirs
     """
@@ -337,12 +338,20 @@ class CompilerDefaults(object):
     self.system_links = []
     self.client_root = client_root
 
-  def SetSystemDirsDefaults(self, compiler, language, timer=None):
+  def SetSystemDirsDefaults(self, compiler, language, sysroot_info, timer=None):
     """Set instance variables according to compiler, and make symlink farm.
 
     Arguments:
       compiler: a filepath (the first argument on the distcc command line)
       language: 'c' or 'c++' or other item in basics.LANGUAGES
+      sysroot_info: pair with the compiler's system root settings in string
+        form (for logging or using as a dictionary key) and as list of args
+        for use in gcc's command line.  Examples:
+          ( '-isysroot /b/sandbox/', [ '-sysroot', '/b/sandbox/' ] )
+        or
+          ( '--sysroot=/b/sandbox/', [ '-sysroot=/b/sandbox/' ] )
+        or
+          ( '', [] )
       timer: a basis.IncludeAnalyzerTimer or None
 
     The timer will be disabled during this routine because the select involved
@@ -352,30 +361,40 @@ class CompilerDefaults(object):
     """
     assert isinstance(compiler, str)
     assert isinstance(language, str)
-    Debug(DEBUG_TRACE, "SetSystemDirsDefaults with CC, LANG: %s, %s" %
-                       (compiler, language))
+    assert isinstance(sysroot_info, tuple)
+    assert len(sysroot_info) == 2
+    assert isinstance(sysroot_info[0], str)
+    assert isinstance(sysroot_info[1], list)
+    sysroot = sysroot_info[0]
+    Debug(DEBUG_TRACE,
+          "SetSystemDirsDefaults with CC, LANG, SYSROOT: %s, %s, %s" %
+          (compiler, language, sysroot))
     if compiler in self.system_dirs_default:
       if language in self.system_dirs_default[compiler]:
-        return
+        if sysroot in self.system_dirs_default[compiler][language]:
+          return
+      else:
+        self.system_dirs_default[compiler][language] = {}
     else:
-      self.system_dirs_default[compiler] = {}
+      self.system_dirs_default[compiler] = { language: {} }
     try:
       if timer:
         # We have to disable the timer because the select system call that is
         # executed when calling the compiler through Popen gives up if presented
         # with a SIGALRM.
         timer.Stop()
-      self.system_dirs_default[compiler][language] = (
-        _SystemSearchdirsGCC(compiler, language, self.canonical_lookup))
+      self.system_dirs_default[compiler][language][sysroot] = (
+        _SystemSearchdirsGCC(compiler, language, sysroot_info[1],
+                             self.canonical_lookup))
       Debug(DEBUG_DATA,
-            "system_dirs_default[%s][%s]: %s" %
-            (compiler, language,
-             self.system_dirs_default[compiler][language]))
+            "system_dirs_default[%s][%s][%s]: %s" %
+            (compiler, language, sysroot,
+             self.system_dirs_default[compiler][language][sysroot]))
       # Now summarize what we know and add to system_dirs_default_all.
       self.system_dirs_default_all |= (
-          set(self.system_dirs_default[compiler][language]))
+          set(self.system_dirs_default[compiler][language][sysroot]))
       # Construct the symlink farm for the compiler default dirs.
-      for system_dir in self.system_dirs_default[compiler][language]:
+      for system_dir in self.system_dirs_default[compiler][language][sysroot]:
         _MakeLinkFromMirrorToRealLocation(system_dir, self.client_root,
                                           self.system_links)
     finally:
