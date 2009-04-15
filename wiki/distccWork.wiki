@@ -50,7 +50,7 @@ done:
 
 Things to point out to apple
   * the gcc version must also bump if the sdks change in any way due to how system headers are moved over the wire, they need to match between all machines so they see the same headers.
-  * USE_XCODE_SELECT_PATH is not used, enabling xcode integration in the build enables all code related to it.
+  * the way that /System/Library/LaunchDaemons/distccd.plist starts distccd must change.  USE_XCODE_SELECT_PATH is no longer used.  distccd should be invoked as distccd --no-detach --daemon --zeroconf --priority WHATEVER --allow 0.0.0.0/0
   * The way xcode picks slaves needs to take into account SDKs now:
      * if no SDK set in xcode project/target, only pick machines on the same major OS version.
      * if SDK set in xcode project/target, then as picking hosts only pick hosts that have that SDK installed.
