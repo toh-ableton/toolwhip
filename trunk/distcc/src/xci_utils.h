@@ -31,7 +31,7 @@
 /* xci_utils.c */
 char *dcc_xci_read_whole_file(FILE *file, size_t *len);
 char *dcc_xci_run_command(const char *command_line);
-char *dcc_xci_xcodeselect_path(void);
+const char *dcc_xci_xcodeselect_path(void);
 char *dcc_xci_mask_developer_dir(const char *path);
 char *dcc_xci_unmask_developer_dir(const char *path);
 

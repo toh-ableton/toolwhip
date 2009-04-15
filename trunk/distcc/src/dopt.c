@@ -156,6 +156,7 @@ const struct poptOption options[] = {
     { "priority", 0,     POPT_ARG_INT, &arg_priority, 0, 0, 0 },
     { "system-version", 0, POPT_ARG_STRING, &arg_system_version, 0, 0, 0},
     { "distcc-version", 0, POPT_ARG_STRING, &arg_distcc_version, 0, 0, 0},
+    { "xcode-dir", 0,    POPT_ARG_STRING, &arg_xcode_dir, 0, 0, 0},
 #endif
     { 0, 0, 0, 0, 0, 0, 0 }
 };
@@ -180,6 +181,7 @@ static void distccd_show_usage(void)
 "    --host-info                display system/compiler information and exit\n"
 "    --system-version           override system version reported to Xcode\n"
 "    --distcc-version           override distcc version reported to Xcode\n"
+"    --xcode-dir                override Xcode Developer directory\n"
 #endif
 "  Networking:\n"
 "    -p, --port PORT            TCP port to listen on\n"

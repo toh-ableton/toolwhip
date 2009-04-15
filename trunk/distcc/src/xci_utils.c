@@ -36,9 +36,16 @@
 #include <sys/stat.h>
 
 #include "distcc.h"
+#include "dopt.h"
 #include "trace.h"
 #include "util.h"
 #include "xci_utils.h"
+
+/* Xcode developer dir override.  If unset, the default will be used.  This
+ * is here and not in dopt.c to avoid dragging in more code linkage to things
+ * that need this file but don't have the override support (distcc vs. distccd,
+ * python bridge, etc.). */
+char *arg_xcode_dir = NULL;
 
 /**
  * Reads the entire contents of |file| to end-of-file and returns it in a
@@ -155,28 +162,28 @@ char *dcc_xci_run_command(const char *command_line) {
  * and Macs running Xcode installations prior to 2.5, this just returns
  * "/Developer".
  *
- * The returned string must be disposed of with free().
+ * The returned string must be not be freed (a cached value is returned by
+ * the method).
  *
  * On failure, returns NULL.
  **/
-char *dcc_xci_xcodeselect_path(void) {
+const char *dcc_xci_xcodeselect_path(void) {
     static const char default_path[] = "/Developer";
     static int has_xcodeselect_path = 0;
-    static char *xcodeselect_path = NULL;
+    static const char *xcodeselect_path = NULL;
     char *output = NULL;
     struct stat statbuf;
+
+    /* Use a command-line override if set. */
+    if (arg_xcode_dir)
+        return arg_xcode_dir;
 
     if (!has_xcodeselect_path) {
         has_xcodeselect_path = 1;
         if (stat("/usr/bin/xcode-select", &statbuf) != 0) {
             rs_log_info("no /usr/bin/xcode-select, using \"%s\"",
                         default_path);
-            output = strdup(default_path);
-            if (!output) {
-                rs_log_error("strdup(\"%s\") failed: %s",
-                             default_path, strerror(errno));
-                goto out_error;
-            }
+            xcodeselect_path = default_path;
         } else {
             output = dcc_xci_run_command("/usr/bin/xcode-select -print-path");
             if (!output)
@@ -197,24 +204,13 @@ char *dcc_xci_xcodeselect_path(void) {
 
             /* Remove the newline. */
             *newline = '\0';
+
+            /* Save the result */
+            xcodeselect_path = output;
         }
-
-        /* Leak the allocated string to a static to avoid having to run
-         * xcode-select each time through. */
-        xcodeselect_path = output;
     }
 
-    /* !xcodeselect_path can be true here when the initial attempt failed. */
-    if (!xcodeselect_path)
-        goto out_error;
-
-    /* Make another copy for caller-owns semantics. */
-    output = strdup(xcodeselect_path);
-    if (!output) {
-        rs_log_error("strdup(\"%s\") failed: %s",
-                     xcodeselect_path, strerror(errno));
-    }
-    return output;
+    return xcodeselect_path;
 
   out_error:
     if (output)
