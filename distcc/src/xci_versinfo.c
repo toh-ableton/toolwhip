@@ -512,7 +512,7 @@ static const dcc_xci_compiler_info *dcc_xci_parse_distcc_compilers(void) {
  **/
 static char **dcc_xci_get_all_compiler_versions(void) {
     const dcc_xci_compiler_info *compilers, *ci;
-    int count, i, j;
+    int count = 0, i, j;
     char **result = NULL;
 
     compilers = dcc_xci_parse_distcc_compilers();
