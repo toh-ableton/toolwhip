@@ -52,4 +52,5 @@ extern int opt_zeroconf;
 extern int arg_priority;
 extern char *arg_system_version;
 extern char *arg_distcc_version;
+extern char *arg_xcode_dir;
 #endif

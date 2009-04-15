@@ -215,32 +215,26 @@ static const char *dcc_xci_get_distcc_version(void) {
  * On failure, returns NULL.
  **/
 static char *dcc_xci_selected_prefix(void) {
-    char *xcodeselect_path = NULL;
+    const char *xcodeselect_path;
     char *selected_prefix = NULL;
-    int len = 0;
+    int size;
 
     xcodeselect_path = dcc_xci_xcodeselect_path();
-    if (!xcodeselect_path)
-        goto out_error;
-    len = strlen(xcodeselect_path);
-
-    selected_prefix = realloc(xcodeselect_path, len + sizeof(PREFIXDIR));
-    if (!selected_prefix) {
-        rs_log_error("realloc() failed: %s", strerror(errno));
-        goto out_error;
+    if (!xcodeselect_path) {
+        rs_log_error("failed to get xcode-select path");
+        return NULL;
     }
-    /* xcodeselect_path is invalid now.  selected_prefix is now the pointer
-     * to that reallocated buffer. */
-    xcodeselect_path = NULL;
 
-    strncpy(selected_prefix + len, PREFIXDIR, sizeof(PREFIXDIR));
+    size = strlen(xcodeselect_path) + sizeof(PREFIXDIR);
+    selected_prefix = malloc(size);
+    if (!selected_prefix) {
+        rs_log_error("malloc() failed: %s", strerror(errno));
+        return NULL;
+    }
+
+    snprintf(selected_prefix, size, "%s%s", xcodeselect_path, PREFIXDIR);
 
     return selected_prefix;
-
-  out_error:
-    if (xcodeselect_path)
-        free(xcodeselect_path);
-    return NULL;
 }
 
 /**
