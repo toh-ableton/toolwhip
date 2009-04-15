@@ -9,7 +9,6 @@ The pending tasks for the distcc work
      * teach the include server to look in the Frameworks's Headers dir.
      * question: are we ok with the overhead for frameworks on all platforms since it's in the include_server and we can ifdef it?
   * -iheader/-iframework need to match like -I/-F
-  * reintegrate xcodedistcc advertisement via dns_sd (apple)/avahi (linux)
   * what happens if you pass already-preprocessed input like .i and .ii to the include server?
   * move the language bits into helper objects so we don't have to repeat so much in the tests
 
@@ -46,6 +45,7 @@ done:
         * add another dimension for (i)sysroots or combine them w/ the compiler or arch to build the key for lookup.
   * remove GNU Make-ism (filter-out) from Makefile, move the logic into configure.  Make -DXCODE_INTEGRATION something that configure knows how to set.
   * update the makefile to not compile the xci files if xcode integration isn't enabled.
+  * reintegrate xcodedistcc advertisement via dns_sd (apple)/avahi (linux)
 
 
 Things to point out to apple
