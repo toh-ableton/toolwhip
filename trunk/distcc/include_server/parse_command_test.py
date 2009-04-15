@@ -51,7 +51,7 @@ class ParseCommandUnitTest(unittest.TestCase):
     mock_compiler = '/usr/crosstool/v8/gcc-4.1.0-glibc-2.2.2/blah/gcc'
     self.mock_compiler = mock_compiler
 
-    def Mock_SetSystemDirsDefaults(compiler, language, timer=None):
+    def Mock_SetSystemDirsDefaults(compiler, language, sysroot_info, timer=None):
       if compiler != mock_compiler:
         raise Exception, "compiler: %s, mock_compiler: %s" % (
           compiler, mock_compiler)
@@ -61,8 +61,8 @@ class ParseCommandUnitTest(unittest.TestCase):
     self.compiler_defaults.system_dirs_default_all = []
     self.compiler_defaults.system_dirs_default = {}
     self.compiler_defaults.system_dirs_default[mock_compiler] = {}
-    self.compiler_defaults.system_dirs_default[mock_compiler]['c'] = []
-    self.compiler_defaults.system_dirs_default[mock_compiler]['c++'] = []
+    self.compiler_defaults.system_dirs_default[mock_compiler]['c'] = { '': [] }
+    self.compiler_defaults.system_dirs_default[mock_compiler]['c++'] = { '': [] }
 
   def tearDown(self):
     shutil.rmtree(self.tmp)

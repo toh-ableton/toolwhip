@@ -63,6 +63,17 @@ class ParseState:
   def set_sysroot(self, x): self.sysroot = x
   def set_outputfile(self, x): self.output_file = x
   def set_iprefix(self, x): self.iprefix = x
+  def SysRootInfo(self):
+    # For the purposes of header search paths, GCC honors the last -isysroot
+    # argument, if none was given, it uses the last -sysroot argument.
+    # We return a pair of a string form and an list of args for gcc.  See
+    # compiler_defaults.CompilerDefaults.SetSystemDirsDefaults() for how this
+    # pair is formated/used.
+    if self.isysroot:
+      return ( "-isysroot " + self.isysroot, [ "-isysroot", self.isysroot ] )
+    if self.sysroot:
+      return ( "--sysroot=" + self.sysroot, [ "--sysroot=" + self.sysroot ] )
+    return ( "", [] )
 
 def _SplitMacroArg(arg):
   """Split an arg as found in -Darg
@@ -431,7 +442,8 @@ def ParseCommandArgs(args, current_dir, includepath_map, dir_map,
     parse_state.language = basics.TRANSLATION_UNIT_MAP[suffix]
   assert parse_state.language in basics.LANGUAGES
 
-  compiler_defaults.SetSystemDirsDefaults(compiler, parse_state.language, timer)
+  compiler_defaults.SetSystemDirsDefaults(compiler, parse_state.language,
+                                          parse_state.SysRootInfo(), timer)
 
   def IndexDirs(dir_list):
     """Normalize directory names and index.
@@ -449,7 +461,7 @@ def ParseCommandArgs(args, current_dir, includepath_map, dir_map,
   if not parse_state.nostdinc:
     angle_dirs.extend(
       IndexDirs(compiler_defaults.system_dirs_default
-                [compiler][parse_state.language]))
+                [compiler][parse_state.language][parse_state.SysRootInfo()[0]]))
   angle_dirs.extend(IndexDirs(parse_state.after_system_dirs))
 
   quote_dirs = IndexDirs(parse_state.quote_dirs)
