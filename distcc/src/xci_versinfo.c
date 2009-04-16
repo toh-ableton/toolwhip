@@ -28,12 +28,15 @@
 #ifdef XCODE_INTEGRATION
 
 #include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
+#include <fnmatch.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/utsname.h>
 
 #include "daemon.h"
@@ -533,6 +536,181 @@ static char **dcc_xci_get_all_compiler_versions(void) {
 }
 
 /**
+ * Returns an list of items in the  directory @p dir.  The matches will have
+ * the prefix directory added to them.  If @p pattern is not NULL, the entries
+ * must match that pattern (fnmatch).  If match_type is not zero, the d_type
+ * must be of the same value.
+ *
+ * NOTE: The returned value from this function is compatible with the argv
+ * functions, specifically, dcc_argv_len() and dcc_free_argv() since it is an
+ * array of strings.
+ **/
+static char **dcc_xci_directory_list(const char *dir, const char *pattern,
+                                     int match_type) {
+    DIR *dir_scanner = NULL;
+    struct dirent *entry;
+    char **result = NULL;
+    char **new_result;
+    int count = 0;
+    int dir_len, name_len;
+
+    if (!dir) goto out_error;
+    dir_len = strlen(dir);
+
+    if (!(dir_scanner = opendir(dir))) {
+        rs_log_error("opendir(\"%s\") failed: %s", dir, strerror(errno));
+        goto out_error;
+    }
+
+    while ((entry = readdir(dir_scanner))) {
+        if (match_type && (match_type != entry->d_type))
+            continue;
+        if (pattern && fnmatch(pattern, entry->d_name, 0))
+            continue;
+
+        /* If reading directories becomes important, this probably wants a
+         * better allocation system, but for now, this is good. */
+        new_result = realloc(result, (count + 1) * sizeof(char*));
+        if (!new_result) {
+            rs_log_error("realloc() failed: %s", strerror(errno));
+            goto out_error;
+        }
+        result = new_result;
+        name_len = dir_len + 2 + entry->d_namlen;
+        result[count] = malloc(name_len);
+        if (!result[count]) {
+            rs_log_error("malloc() failed: %s", strerror(errno));
+            goto out_error;
+        }
+        snprintf(result[count++], name_len, "%s/%s", dir, entry->d_name);
+    }
+
+    /* If it has anything, we need need to put the ending NULL */
+    if (count)
+        result[count] = NULL;
+
+    if (closedir(dir_scanner)) {
+        rs_log_error("closedir(\"%s\") failed: %s", dir, strerror(errno));
+        /* Keep going since we got the data we needed */
+    }
+  
+    return result;
+
+  out_error:
+    if (dir_scanner)
+        closedir(dir_scanner);
+    if (result) {
+        while (count--) {
+            if (result[count])
+                free(result[count]);
+        }
+        free(result);
+    }
+    return NULL;
+}
+
+/**
+ * Returns a list of all Mac OS X and iPhone SDKs available.  This is done by
+ * scanning the directories under the Xcode developer directory as there
+ * does not seem to be a listing of them.
+ *
+ * The returned value is a vector.  The vector itself and the individual
+ * elements of the vector must not be freed.  The final element of the vector
+ * will be NULL.
+ *
+ * On failure, returns NULL.  This does not necessarily indicate a hard error, 
+ * it is possible for NULL to be returned when there are no SDKs available.
+ **/
+static const char **dcc_xci_get_all_developer_sdks(void) {
+    static int scanned_sdks = 0;
+    static const char **sdks = NULL;
+    char **sdk_paths = NULL;
+    char **new_sdk_paths;
+    char **platforms = NULL;
+    char **platform_sdks = NULL;
+    char buf[PATH_MAX + 1];
+    const char *dev_dir;
+    int i, count, sdk_paths_size = 0;
+    int dev_dir_len;
+
+    if (scanned_sdks)
+        return sdks;
+
+    scanned_sdks = 1;
+  
+    dev_dir = dcc_xci_xcodeselect_path();
+    if (!dev_dir) goto bail_out;
+  
+    /* As of Xcode 3.1.x, we need to look in:
+     *   [XCODE_DEVELOPER]/Developer/SDKs
+     *   [XCODE_DEVELOPER]/Platforms/[ANYTHING].platform/Developer/SDKs
+     * for directories that end in '.sdk'. */
+
+    snprintf(buf, sizeof(buf), "%s/SDKs", dev_dir);
+    sdk_paths = dcc_xci_directory_list(buf, "*.sdk", DT_DIR);
+    if (sdk_paths)
+        sdk_paths_size = dcc_argv_len(sdk_paths) + 1;
+
+    snprintf(buf, sizeof(buf), "%s/Platforms", dev_dir);
+    platforms = dcc_xci_directory_list("/Developer/Platforms", "*.platform",
+                                       DT_DIR);
+    if (platforms) {
+        for (i = 0 ; platforms[i] ; ++i) {
+            snprintf(buf, sizeof(buf), "%s/Developer/SDKs", platforms[i]);
+            platform_sdks = dcc_xci_directory_list(buf, "*.sdk", DT_DIR);
+            if (!platform_sdks)
+                continue; /* No sdks, on to the next */
+            count = dcc_argv_len(platform_sdks);
+            new_sdk_paths = realloc(sdk_paths,
+                                    (sdk_paths_size + count) *
+                                      sizeof(char*));
+            if (!new_sdk_paths) {
+                rs_log_error("realloc() failed: %s", strerror(errno));
+                goto bail_out;
+            }
+            sdk_paths = new_sdk_paths;
+            memcpy(sdk_paths + sdk_paths_size - 1, platform_sdks,
+                   (count + 1) * sizeof(char*));
+            /* We've moved the strings, just free the list itself. */
+            free(platform_sdks);
+            platform_sdks = NULL;
+        }
+    }
+
+    /* Now take the Xcode developer dir off the front of them to get their
+     * names (for comparing between machines). */
+    if (sdk_paths_size) {
+        sdks = malloc(sdk_paths_size * sizeof(char*));
+        if (!sdks) {
+            rs_log_error("malloc() failed: %s", strerror(errno));
+            goto bail_out;
+        }
+        dev_dir_len = strlen(dev_dir) + 1; /* Remove the trailing / also */
+        for (i = 0 ; sdk_paths[i] ; i++) {
+            sdks[i] = strdup(sdk_paths[i] + dev_dir_len);
+            if (!sdks[i]) {
+                rs_log_error("strdup() failed: %s", strerror(errno));
+                dcc_free_argv((char**)sdks);
+                sdks = NULL;
+                goto bail_out;
+            }
+        }
+        sdks[i] = NULL;
+    }
+
+  bail_out:
+    /* Normal or error cleanup */
+    if (sdk_paths)
+        dcc_free_argv(sdk_paths);
+    if (platforms)
+        dcc_free_argv(platforms);
+    if (platform_sdks)
+        dcc_free_argv(platform_sdks);
+    return sdks;
+}
+
+
+/**
  * Return a string containing host information, including hardware information,
  * the OS version, and compiler versions.  Information that can't be collected
  * due to errors is omitted from the report.
@@ -551,6 +729,7 @@ const char *dcc_xci_host_info_string() {
     static const char cpuspeed_key[] = "CPUSPEED=";
     static const char jobs_key[] = "JOBS=";
     static const char priority_key[] = "PRIORITY=";
+    static const char sdk_key[] = "DEVELOPER_SDK=";
     static int has_host_info = 0;
     static char *host_info = NULL;
     int len = 0, pos = 0, ncpus;
@@ -558,6 +737,7 @@ const char *dcc_xci_host_info_string() {
     char *info = NULL;
     const char *sys;
     char **compilers = NULL, **compiler;
+    const char **sdks = NULL, **sdk;
 
     if (has_host_info)
         return host_info;
@@ -591,6 +771,12 @@ const char *dcc_xci_host_info_string() {
 
     len += sizeof(priority_key) + int_decimal_len;
 
+    sdks = dcc_xci_get_all_developer_sdks();
+    if (sdks) {
+        for (sdk = sdks; *sdk; ++sdk)
+            len += sizeof(sdk_key) + strlen(*sdk);
+    }
+  
     /* Leave room for a NUL terminator at the end of the entire string. */
     ++len;
 
@@ -646,6 +832,14 @@ const char *dcc_xci_host_info_string() {
                     arg_priority);
     if (pos >= len)
         goto out_error_info_size;
+
+    if (sdks) {
+        for (sdk = sdks; *sdk; ++sdk) {
+            pos += snprintf(info + pos, len - pos, "%s%s\n", sdk_key, *sdk);
+            if (pos >= len)
+                goto out_error_info_size;
+        }
+    }
 
     /* Trim the buffer to the size actually used. */
     if (pos + 1 < len) {
