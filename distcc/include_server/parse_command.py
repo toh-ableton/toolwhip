@@ -60,7 +60,15 @@ class ParseState:
   def set_nostdinc(self): self.nostdinc = True
   def set_language(self, x): self.language = x
   def set_isysroot(self, x): self.isysroot = x
-  def set_sysroot(self, x): self.sysroot = x
+  def set_sysroot(self, x):
+    # --sysroot is a GNU style arg, meaning it's either two args or one arg
+    # with an equal sign in the middle.  So if we start with an equal sign
+    # skip over it (yes, this means somethind doing "--sysroot =foo" won't
+    # get what they want, but oh, well).
+    if x[0] == '=':
+      self.sysroot = x[1:]
+    else:
+      self.sysroot = x
   def set_outputfile(self, x): self.output_file = x
   def set_iprefix(self, x): self.iprefix = x
   def SysRootInfo(self):
@@ -120,7 +128,7 @@ CPP_OPTIONS_MAYBE_TWO_WORDS = {
   '-imultilib':     lambda ps, arg: _RaiseNotImplemented('-imultilib'),
   '-isystem':       lambda ps, arg: ps.before_system_dirs.append(arg),
   '-iquote':        lambda ps, arg: ps.quote_dirs.append(arg),
-  '--sysroot=':     lambda ps, arg: ps.set_sysroot(arg),
+  '--sysroot':      lambda ps, arg: ps.set_sysroot(arg),
 }
 CPP_OPTIONS_MAYBE_TWO_WORDS_FIRST_LETTERS = ('M', 'a', 'i', '-')
 # A "compile-time" check to make sure the first-letter list is up-to-date
