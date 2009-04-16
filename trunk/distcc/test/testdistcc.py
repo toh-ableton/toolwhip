@@ -451,6 +451,19 @@ class StripArgs_Case(SimpleDistCC_Case):
                   "cc -c -c foo.c -o foo.o"),
                  ("cc -c -c foo.c -o foo.o --sysroot",
                   "cc -c -c foo.c -o foo.o"),
+                 # -F and -iframework cases
+                 ("cc -c -F /some/dir -c foo.c -o foo.o",
+                  "cc -c -c foo.c -o foo.o"),
+                 ("cc -c -c foo.c -o foo.o -F",
+                  "cc -c -c foo.c -o foo.o"),
+                 ("cc -c -F/some/dir -c foo.c -o foo.o",
+                  "cc -c -c foo.c -o foo.o"),
+                 ("cc -c -iframework /some/dir -c foo.c -o foo.o",
+                  "cc -c -c foo.c -o foo.o"),
+                 ("cc -c -c foo.c -o foo.o -iframework",
+                  "cc -c -c foo.c -o foo.o"),
+                 ("cc -c -iframework/some/dir -c foo.c -o foo.o",
+                  "cc -c -c foo.c -o foo.o"),
                 )
         for cmd, expect in cases:
             o, err = self.runcmd("h_strip %s" % cmd)
