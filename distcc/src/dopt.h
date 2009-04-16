@@ -51,6 +51,5 @@ extern int opt_zeroconf;
 #ifdef XCODE_INTEGRATION
 extern int arg_priority;
 extern char *arg_system_version;
-extern char *arg_distcc_version;
 extern char *arg_xcode_dir;
 #endif
