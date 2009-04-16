@@ -1765,23 +1765,7 @@ class BadInclude_Case(Compilation_Case):
 """
 
     def runtest(self):
-        if _server_options.find('cpp') != -1:
-            # Annoyingly, different versions of gcc are inconsistent
-            # in how they treat a non-existent #include file when
-            # invoked with "-MMD": some versions treat it as an error
-            # (rc 1), some as a warning (rc 0).  When distcc is
-            # responsible for preprocessing (_server_options includes
-            # 'cpp'), we need to figure out which our gcc does, in
-            # order to verify distcc is doing the same thing.
-            # FIXME(klarlund): this is arguably a bug in gcc, and it
-            # is exacerbated by distcc's pump mode because we always
-            # pass -MMD, even when the user didn't.  TODO(klarlund):
-            # change error_rc back to 1 once that FIXME is fixed.
-            error_rc, _, _ = self.runcmd_unchecked(_gcc + " -MMD -E testtmp.c")
-        else:
-            error_rc = 1
-        self.runcmd(self.distcc() + _gcc + " -o testtmp.o -c testtmp.c",
-                    error_rc)
+        self.runcmd(self.distcc() + _gcc + " -o testtmp.o -c testtmp.c", 1)
 
 
 class PreprocessPlainText_Case(Compilation_Case):
