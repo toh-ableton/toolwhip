@@ -429,7 +429,6 @@ class StripArgs_Case(SimpleDistCC_Case):
                   "cc -c -c -o foo.o foo.c"),
                  ("cc -c -DDEBUG -DFOO=23 -D BAR -c -o foo.o foo.c",
                   "cc -c -c -o foo.o foo.c"),
-
                  # New options stripped in 0.11
                  ("cc -o nsinstall.o -c -DOSTYPE=\"Linux2.4\" -DOSARCH=\"Linux\" -DOJI -D_BSD_SOURCE -I../dist/include -I../dist/include -I/home/mbp/work/mozilla/mozilla-1.1/dist/include/nspr -I/usr/X11R6/include -fPIC -I/usr/X11R6/include -Wall -W -Wno-unused -Wpointer-arith -Wcast-align -pedantic -Wno-long-long -pthread -pipe -DDEBUG -D_DEBUG -DDEBUG_mbp -DTRACING -g -I/usr/X11R6/include -include ../config-defs.h -DMOZILLA_CLIENT -Wp,-MD,.deps/nsinstall.pp nsinstall.c",
                   "cc -o nsinstall.o -c -fPIC -Wall -W -Wno-unused -Wpointer-arith -Wcast-align -pedantic -Wno-long-long -pthread -pipe -g nsinstall.c"),
@@ -445,7 +444,13 @@ class StripArgs_Case(SimpleDistCC_Case):
                  ("cc -c --sysroot=/ -c foo.c -o foo.o",
                   "cc -c -c foo.c -o foo.o"),
                  ("cc -c --sysroot= -c foo.c -o foo.o",
-                  "cc -c -c foo.c -o foo.o")
+                  "cc -c -c foo.c -o foo.o"),
+                 ("cc -c --sysroot /some/dir -c foo.c -o foo.o",
+                  "cc -c -c foo.c -o foo.o"),
+                 ("cc -c -c foo.c -o foo.o --sysroot /some/dir",
+                  "cc -c -c foo.c -o foo.o"),
+                 ("cc -c -c foo.c -o foo.o --sysroot",
+                  "cc -c -c foo.c -o foo.o"),
                 )
         for cmd, expect in cases:
             o, err = self.runcmd("h_strip %s" % cmd)
