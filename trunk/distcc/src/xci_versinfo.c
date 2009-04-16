@@ -191,18 +191,6 @@ static const char *dcc_xci_get_system_version(void) {
 }
 
 /**
- * Returns the distcc version to report.  If a distcc version override string
- * is set, it will be returned.  Otherwise, the package version is used.  The
- * returned string must not be freed.
- **/
-static const char *dcc_xci_get_distcc_version(void) {
-    if (arg_distcc_version)
-        return arg_distcc_version;
-
-    return PACKAGE_VERSION;
-}
-
-/**
  * Returns the appropriate prefix directory within the Xcode developer
  * directory.  The Xcode developer dir is collected from xcode-select.  The
  * prefix directory is what was chosen as --prefix at configure time.  The
@@ -557,7 +545,7 @@ static char **dcc_xci_get_all_compiler_versions(void) {
  **/
 const char *dcc_xci_host_info_string() {
     static const char sys_key[] = "SYSTEM=";
-    static const char distcc_key[] = "DISTCC=";
+    static const char distcc_key_and_value[] = "DISTCC=" PACKAGE_VERSION;
     static const char compiler_key[] = "COMPILER=";
     static const char cpus_key[] = "CPUS=";
     static const char cpuspeed_key[] = "CPUSPEED=";
@@ -568,7 +556,7 @@ const char *dcc_xci_host_info_string() {
     int len = 0, pos = 0, ncpus;
     unsigned long long cpuspeed;
     char *info = NULL;
-    const char *sys, *distcc;
+    const char *sys;
     char **compilers = NULL, **compiler;
 
     if (has_host_info)
@@ -587,8 +575,7 @@ const char *dcc_xci_host_info_string() {
     if (sys)
         len += sizeof(sys_key) + strlen(sys);
 
-    distcc = dcc_xci_get_distcc_version();
-    len += sizeof(distcc_key) + strlen(distcc);
+    len += sizeof(distcc_key_and_value);
 
     compilers = dcc_xci_get_all_compiler_versions();
     if (compilers) {
@@ -620,7 +607,7 @@ const char *dcc_xci_host_info_string() {
             goto out_error_info_size;
     }
 
-    pos += snprintf(info + pos, len - pos, "%s%s\n", distcc_key, distcc);
+    pos += snprintf(info + pos, len - pos, "%s\n", distcc_key_and_value);
     if (pos >= len)
         goto out_error_info_size;
 
