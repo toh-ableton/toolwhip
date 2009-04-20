@@ -171,7 +171,8 @@ def _SystemSearchdirsGCC(compiler, language, sysroot_args, canonical_lookup):
     sysroot_args: list of -isysroot or --sysroot args for gcc's command line.
     canonical_lookup: a function that maps strings to their realpaths
   Returns:
-    list of system search dirs for this compiler and language
+    list of pairs of system search dirs and their type for this compiler and
+    language
 
   """
 
@@ -254,6 +255,7 @@ def _SystemSearchdirsGCC(compiler, language, sysroot_args, canonical_lookup):
       raise NotCoveredError(parse_error_msg)
 
     directory = directory[1:]
+    directory_type = basics.INCLUDE_DIR_NORMAL
 
     # For our purposes, it doesn't matter whether the directory is a framework
     # directory (-F) or an include directory (-I).  This only applies when
@@ -261,8 +263,10 @@ def _SystemSearchdirsGCC(compiler, language, sysroot_args, canonical_lookup):
     framework_string = ' (framework directory)'
     if directory.endswith(framework_string):
       directory = directory[:-len(framework_string)]
+      directory_type = basics.INCLUDE_DIR_FRAMEWORKS
 
-    directories.append(canonical_lookup(directory))
+
+    directories.append((canonical_lookup(directory), directory_type))
 
   return directories
 
@@ -392,10 +396,11 @@ class CompilerDefaults(object):
              self.system_dirs_default[compiler][language][sysroot]))
       # Now summarize what we know and add to system_dirs_default_all.
       self.system_dirs_default_all |= (
-          set(self.system_dirs_default[compiler][language][sysroot]))
+          set([ d for (d, t) in
+                  self.system_dirs_default[compiler][language][sysroot] ]))
       # Construct the symlink farm for the compiler default dirs.
-      for system_dir in self.system_dirs_default[compiler][language][sysroot]:
-        _MakeLinkFromMirrorToRealLocation(system_dir, self.client_root,
+      for (sys_dir, t) in self.system_dirs_default[compiler][language][sysroot]:
+        _MakeLinkFromMirrorToRealLocation(sys_dir, self.client_root,
                                           self.system_links)
     finally:
       if timer:

@@ -206,6 +206,10 @@ ALGORITHMS = [SIMPLE, MEMOIZING]
 # memory usage.  Trying with 100,000 did not speed up the application further.
 GC_THRESHOLD = 10000  
 
+# INCLUDE DIR COMMAND LINE HANDLING
+
+INCLUDE_DIR_NORMAL     = 1  # -I
+INCLUDE_DIR_FRAMEWORKS = 2  # -F
 
 # FLAGS FOR COMMAND LINE OPTIONS
 
