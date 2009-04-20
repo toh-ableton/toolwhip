@@ -835,7 +835,7 @@ char *dcc_replace_substring(const char *s,
     buf = malloc(buf_size * sizeof(char));
     if (!buf) {
         rs_log_error("malloc(%ld) failed: %s",
-                     buf_size * sizeof(char), strerror(errno));
+                     (long)buf_size * sizeof(char), strerror(errno));
         goto out_error;
     }
 
@@ -846,7 +846,7 @@ char *dcc_replace_substring(const char *s,
             new_buf = realloc(buf, buf_size * sizeof(char));
             if (!new_buf) {
                 rs_log_error("realloc(%ld) failed: %s",
-                             buf_size * sizeof(char), strerror(errno));
+                             (long)buf_size * sizeof(char), strerror(errno));
                 goto out_error;
             }
             buf = new_buf;
@@ -880,7 +880,7 @@ char *dcc_replace_substring(const char *s,
             buf = new_buf;
         } else {
             rs_log_info("realloc(%ld) failed: %s",
-                        buf_size * sizeof(char), strerror(errno));
+                        (long)buf_size * sizeof(char), strerror(errno));
         }
     }
 
