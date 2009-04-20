@@ -680,9 +680,9 @@ man/include_server_1.html: man/include_server.1
 .PHONY: check_programs
 .PHONY: maintainer-check-no-set-path distcc-maintainer-check
 .PHONY: include-server-maintainer-check pump-maintainer-check
-.PHONY: maintainer-check 
+.PHONY: lzo-maintainer-check maintainer-check 
 .PHONY: check
-.PHONY: lzo-check valgrind-check single-test pump-single-test
+.PHONY: lzo-check pump-check valgrind-check single-test pump-single-test
 
 check_programs: $(check_PROGRAMS) $(bin_PROGRAMS)
 
@@ -756,11 +756,20 @@ pump-maintainer-check: pump include-server check_programs
 	        distcc-maintainer-check; \
 	fi
 
+# Do distcc-maintainer-check in lzo-mode (without pump), if possible.
+lzo-maintainer-check: check_programs
+	DISTCC_HOSTS='<invalid>,cpp' \
+	  $(MAKE) \
+	      RESTRICTED_PATH="$(RESTRICTED_PATH)" \
+	      TESTDISTCC_OPTS="--lzo $(TESTDISTCC_OPTS)" \
+	      distcc-maintainer-check; \
+
+
 # Do distcc-maintainer-check, for non-pumped distcc, and try the include_server
 # check to check the include server's behavior, if applicable.  If the include
 # server exists, then carry out distcc-maintainer-check in pump-mode.
 maintainer-check: distcc-maintainer-check include-server-maintainer-check \
-	pump-maintainer-check
+	pump-maintainer-check lzo-maintainer-check
 
 check:
 	@if test -n "$(INCLUDESERVER_PYTHON)"; then \
@@ -774,8 +783,10 @@ check:
 	fi
 
 # Runs the tests in lzo-mode.
-lzo-check:
-	$(MAKE) TESTDISTCC_OPTS=--lzo maintainer-check
+lzo-check: lzo-maintainer-check
+
+# Runs the tests in pump-mode (,cpp,lzo).
+pump-check: pump-maintainer-check
 
 # Runs the tests with valgrind.
 valgrind-check:
