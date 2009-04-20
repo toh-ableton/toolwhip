@@ -1552,6 +1552,106 @@ int main(void) {
         self.assert_equal(msgs, "hello world\n")
 
 
+class FrameworkSupport_Case(Compilation_Case):
+    """Base class for tests that use local frameworks."""
+
+    def frameworkDirs(self):
+        """Returns a list of directories to create to make the Frameworks exist
+        on disk"""
+        raise NotImplementedError
+
+    def includeDirective(self):
+        """Returns the string of what to use for #include to get the header
+        (Usually something like #include "MyFramework/MyHeader.h")."""
+        raise NotImplementedError
+
+    def createSource(self):
+        for d in self.frameworkDirs():
+            os.makedirs(d)
+        Compilation_Case.createSource(self)
+
+    def runtest(self):
+        # Don't try to run the test the compiler doesn't seem to support -F
+        error_rc, _, _ = self.runcmd_unchecked(
+            "echo '#include \"Foo/Foo.h\"' > _testtmp.c; " +
+            "echo 'int main(int ac, char**av) { return 0; }' >> _testtmp.c; " +
+            "mkdir -p fmwrks/Foo.framework/Headers; " +
+            "echo '/* test header */' > fmwrks/Foo.framework/Headers/Foo.h; " +
+            "rm -f _testtmp.o; " +
+            _gcc + " -Ffmwrks " + self.compileOpts() +
+                " -c _testtmp.c -o _testtmp.o && " +
+            "test -f _testtmp.o" )
+        if error_rc != 0:
+            raise comfychair.NotRunError ('Installed gcc (' + _gcc + ') does'
+                                          ' not support frameworks.')
+        else:
+            Compilation_Case.runtest (self)
+
+    def headerSource(self):
+        return """
+#define HELLO_WORLD "hello world"
+"""
+
+    def source(self):
+        return """
+#include <stdio.h>
+""" + self.includeDirective() + """
+int main(void) {
+    puts(HELLO_WORLD);
+    return 0;
+}
+"""
+
+    def checkBuiltProgramMsgs(self, msgs):
+        self.assert_equal(msgs, "hello world\n")
+
+
+class FrameworkHeader_Case(FrameworkSupport_Case):
+    """Simple test of a header via framework."""
+
+    def frameworkDirs(self):
+        return [ "fwk/FrameworkTest.framework/Headers" ]
+
+    def compileOpts(self):
+        return "-Ffwk"
+
+    def includeDirective(self):
+        return "#include \"FrameworkTest/MyHeader.h\""
+
+    def headerFilename(self):
+        return "fwk/FrameworkTest.framework/Headers/MyHeader.h"
+
+class FrameworkPrivateHeader_Case(FrameworkSupport_Case):
+    """Simple test of a private header via framework."""
+
+    def frameworkDirs(self):
+        return [ "fwk/FrameworkTest.framework/Headers",
+                 "fwk/FrameworkTest.framework/PrivateHeaders" ]
+
+    def compileOpts(self):
+        return "-Ffwk"
+
+    def includeDirective(self):
+        return "#include \"FrameworkTest/MyHeader.h\""
+
+    def headerFilename(self):
+        return "fwk/FrameworkTest.framework/PrivateHeaders/MyHeader.h"
+
+class FrameworkAngleHeader_Case(FrameworkHeader_Case):
+    """Test including the header in <> instead of quotes."""
+
+    def includeDirective(self):
+        return "#include <FrameworkTest/MyHeader.h>"
+
+class FrameworkAnglePrivateHeader_Case(FrameworkPrivateHeader_Case):
+    """Test including the header in <> instead of quotes."""
+
+    def includeDirective(self):
+        return "#include <FrameworkTest/MyHeader.h>"
+
+# TODO(tvl/mark): test cases of framework within a framework
+
+
 class Gdb_Case(CompileHello_Case):
     """Test that distcc generates correct debugging information."""
 
@@ -2506,6 +2606,10 @@ tests = [
          EmptySource_Case,
          HostFile_Case,
          AbsSourceFilename_Case,
+         FrameworkHeader_Case,
+         FrameworkPrivateHeader_Case,
+         FrameworkAngleHeader_Case,
+         FrameworkAnglePrivateHeader_Case,
          # slow tests below here
          Concurrent_Case,
          HundredFold_Case,
