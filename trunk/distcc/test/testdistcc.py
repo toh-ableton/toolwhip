@@ -1621,6 +1621,7 @@ class FrameworkHeader_Case(FrameworkSupport_Case):
     def headerFilename(self):
         return "fwk/FrameworkTest.framework/Headers/MyHeader.h"
 
+
 class FrameworkPrivateHeader_Case(FrameworkSupport_Case):
     """Simple test of a private header via framework."""
 
@@ -1637,11 +1638,13 @@ class FrameworkPrivateHeader_Case(FrameworkSupport_Case):
     def headerFilename(self):
         return "fwk/FrameworkTest.framework/PrivateHeaders/MyHeader.h"
 
+
 class FrameworkAngleHeader_Case(FrameworkHeader_Case):
     """Test including the header in <> instead of quotes."""
 
     def includeDirective(self):
         return "#include <FrameworkTest/MyHeader.h>"
+
 
 class FrameworkAnglePrivateHeader_Case(FrameworkPrivateHeader_Case):
     """Test including the header in <> instead of quotes."""
@@ -1649,7 +1652,28 @@ class FrameworkAnglePrivateHeader_Case(FrameworkPrivateHeader_Case):
     def includeDirective(self):
         return "#include <FrameworkTest/MyHeader.h>"
 
-# TODO(tvl/mark): test cases of framework within a framework
+
+class Subframework_Case(FrameworkSupport_Case):
+    """Simple test of a framework including a subframework."""
+
+    def frameworkDirs(self):
+        return [ "fwk/Umbrella.framework/Headers",
+                 "fwk/Umbrella.framework/Frameworks/Sub.framework/Headers" ]
+
+    def compileOpts(self):
+        return "-Ffwk"
+
+    def includeDirective(self):
+        return "#include <Umbrella/One.h>"
+
+    def headerFilename(self):
+        return "fwk/Umbrella.framework/Frameworks/Sub.framework/Headers/Two.h"
+
+    def createSource(self):
+        FrameworkSupport_Case.createSource(self)
+        f = open('fwk/Umbrella.framework/Headers/One.h', 'w')
+        f.write("#include <Sub/Two.h>\n")
+        f.close()
 
 
 class Gdb_Case(CompileHello_Case):
@@ -2610,6 +2634,7 @@ tests = [
          FrameworkPrivateHeader_Case,
          FrameworkAngleHeader_Case,
          FrameworkAnglePrivateHeader_Case,
+         Subframework_Case,
          # slow tests below here
          Concurrent_Case,
          HundredFold_Case,
