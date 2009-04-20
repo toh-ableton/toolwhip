@@ -118,6 +118,9 @@ class ParseCommandUnitTest(unittest.TestCase):
 
   def test_ParseCommandArgs(self):
 
+    # TODO(tvl): add -F and -iframework lines to the tests once we figure
+    # out how we're dealing with them.
+
     quote_dirs, angle_dirs, include_files, filepath, _incl_clos_f, _d_opts = (
       parse_command.ParseCommandArgs(
         parse_command.ParseCommandLine(

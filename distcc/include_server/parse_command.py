@@ -46,7 +46,7 @@ class ParseState:
     self.file_names = []
     self.quote_dirs = []
     self.include_files = []
-    self.i_dirs = []
+    self.include_dirs = []
     self.before_system_dirs = []
     self.after_system_dirs = []
 
@@ -116,14 +116,17 @@ CPP_OPTIONS_MAYBE_TWO_WORDS = {
   '-MT':            lambda ps, arg: None,
   '-MQ':            lambda ps, arg: None,
   '-arch':          lambda ps, arg: None,
+  '-iframework':    lambda ps, arg: ps.include_dirs.append((arg,
+                                               basics.INCLUDE_DIR_FRAMEWORKS)),
   '-include':       lambda ps, arg: ps.include_files.append(arg),
   '-imacros':       lambda ps, arg: ps.include_files.append(arg),
   '-idirafter':     lambda ps, arg: ps.after_system_dirs.append(arg),
   '-iprefix':       lambda ps, arg: ps.set_iprefix(arg),
   '-iwithprefix':   lambda ps, arg: ps.after_system_dirs.append(
                                       os.path.join(ps.iprefix, arg)),
-  '-iwithprefixbefore':  lambda ps, arg: ps.i_dirs.append(
-                                           os.path.join(ps.iprefix, arg)),
+  '-iwithprefixbefore':  lambda ps, arg: ps.include_dirs.append(
+                                           (os.path.join(ps.iprefix, arg),
+                                            basics.INCLUDE_DIR_NORMAL)),
   '-isysroot':      lambda ps, arg: ps.set_isysroot(arg),
   '-imultilib':     lambda ps, arg: _RaiseNotImplemented('-imultilib'),
   '-isystem':       lambda ps, arg: ps.before_system_dirs.append(arg),
@@ -174,7 +177,10 @@ CPP_OPTIONS_ONE_WORD = {
 # word, or may be appended right after the letter.
 CPP_OPTIONS_ONE_LETTER = {
   'D': lambda ps, arg: ps.Dopts.append(arg.split('=')),
-  'I': lambda ps, arg: ps.i_dirs.append(arg),
+  'F': lambda ps, arg: ps.include_dirs.append((arg,
+                                               basics.INCLUDE_DIR_FRAMEWORKS)),
+  'I': lambda ps, arg: ps.include_dirs.append((arg,
+                                               basics.INCLUDE_DIR_NORMAL)),
 #  'U': lambda ps, arg: _RaiseNotImplemented('-U') # affects computed includes
   'U': lambda ps, arg: None,
   'o': lambda ps, arg: ps.set_outputfile(arg),
@@ -421,8 +427,9 @@ def ParseCommandArgs(args, current_dir, includepath_map, dir_map,
   
   # Sanity-checking on arguments
   # -I- is a special form of the -I command.
-  if "-" in parse_state.i_dirs:
-    _RaiseNotImplemented('-I-', '(Use -iquote instead.)')
+  for (d, t) in parse_state.include_dirs:
+    if d == "-":
+      _RaiseNotImplemented('-I-', '(Use -iquote instead.)')
 
   if len(parse_state.file_names) != 1:
     raise NotCoveredError(
@@ -454,25 +461,30 @@ def ParseCommandArgs(args, current_dir, includepath_map, dir_map,
                                           parse_state.SysRootInfo(), timer)
 
   def IndexDirs(dir_list):
-    """Normalize directory names and index.
+    """Normalize directory names and index, but the list of names is actually
+    pairs of the name and type of directory (normal vs. framework).
 
     Remove leading "./" and trailing "/"'s from directory paths in
     dir_list before indexing them according to dir_map.
     """
     S = basics.SafeNormPath
     I = dir_map.Index
-    return [I(S(d)) for d in dir_list]
+    # TODO(tvl): support the framework ones, skip them for now
+    return [I(S(d)) for (d, t) in dir_list if t == basics.INCLUDE_DIR_NORMAL]
 
   # Now string the directory lists together according to CPP semantics.
-  angle_dirs = IndexDirs(parse_state.i_dirs)
-  angle_dirs.extend(IndexDirs(parse_state.before_system_dirs))
+  angle_dirs = IndexDirs(parse_state.include_dirs)
+  angle_dirs.extend(IndexDirs([(d, basics.INCLUDE_DIR_NORMAL) for d in
+                                              parse_state.before_system_dirs]))
   if not parse_state.nostdinc:
     angle_dirs.extend(
       IndexDirs(compiler_defaults.system_dirs_default
                 [compiler][parse_state.language][parse_state.SysRootInfo()[0]]))
-  angle_dirs.extend(IndexDirs(parse_state.after_system_dirs))
+  angle_dirs.extend(IndexDirs([(d, basics.INCLUDE_DIR_NORMAL) for d in
+                                               parse_state.after_system_dirs]))
 
-  quote_dirs = IndexDirs(parse_state.quote_dirs)
+  quote_dirs = IndexDirs([(d, basics.INCLUDE_DIR_NORMAL) for d in
+                                                       parse_state.quote_dirs])
   quote_dirs.extend(angle_dirs)
   angle_dirs = tuple(angle_dirs)
   quote_dirs = tuple(quote_dirs)
