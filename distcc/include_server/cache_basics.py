@@ -487,7 +487,6 @@ class DirectoryMapToIndex(MapToIndex):
     a '/' appended.
     """
     if directory != "" and directory != "/":
-      assert directory[-1] != '/', directory
       directory = directory + '/'
     return MapToIndex.Index(self, directory)
 
@@ -776,20 +775,40 @@ class BuildStatCache(object):
         if __debug__: statistics.sys_stat_counter += 1
         # We do not explictly take into account currdir_idx, because
         # of the check above that os.getcwd is set to current_dir.
-        relpath = dir_map_string[sl_idx] + includepath
-        if _OsPathIsFile(relpath):
-          searchdir_stats[sl_idx] = True
-          rpath = os.path.join(dir_map_string[currdir_idx], relpath)
-          realpath_idx = searchdir_realpaths[sl_idx] = (
-            self.realpath_map.Index(rpath))
-          # This is the place to catch errant files according to user defined
-          # regular expression path_observation_re.
-          if basics.opt_path_observation_re:
-            realpath = self.realpath_map.string[realpath_idx]
-            if basics.opt_path_observation_re.search(realpath):
-              self.path_observations.append((includepath, relpath, realpath))
-          return ((sl_idx, includepath_idx), realpath_idx)
-        else:
+        sl_str = dir_map_string[sl_idx]
+        relpaths = [sl_str + includepath]
+
+        # Framework directories are stored with an extra trailing slash.  The
+        # rules for searching within a framework directory are slightly
+        # different from those used for searching normal include directories.
+        if sl_str.endswith('//'):
+          if not '/' in includepath:
+            # Frameworks must be #included with at least one slash separating
+            # the framework name from the header name.
+            relpaths = []
+          else:
+            (i_fwk, i_hdr) = includepath.split('/', 1)
+            i_fwk = i_fwk + '.framework/'
+            relpaths = [sl_str[:-1] + i_fwk + 'Headers/' + i_hdr,
+                        sl_str[:-1] + i_fwk + 'PrivateHeaders/' + i_hdr]
+
+        header_exists = False
+        for relpath in relpaths:
+          if _OsPathIsFile(relpath):
+            header_exists = True
+            searchdir_stats[sl_idx] = True
+            rpath = os.path.join(dir_map_string[currdir_idx], relpath)
+            realpath_idx = searchdir_realpaths[sl_idx] = (
+              self.realpath_map.Index(rpath))
+            # This is the place to catch errant files according to user defined
+            # regular expression path_observation_re.
+            if basics.opt_path_observation_re:
+              realpath = self.realpath_map.string[realpath_idx]
+              if basics.opt_path_observation_re.search(realpath):
+                self.path_observations.append((includepath, relpath, realpath))
+            return ((sl_idx, includepath_idx), realpath_idx)
+
+        if not header_exists:
           searchdir_stats[sl_idx] = False
 
     if __debug__: Debug(DEBUG_TRACE2, "Resolve: failed")
