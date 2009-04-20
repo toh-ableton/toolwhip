@@ -63,7 +63,7 @@ char *arg_xcode_dir = NULL;
 char *dcc_xci_read_whole_file(FILE *file, size_t *len) {
     char *output = NULL, *new_output = NULL;
     const int max_buffer_chunk = 10240;
-    int buffer_size = 128, pos = 0;
+    int buffer_size = 128, pos = 0, count;
 
     output = malloc(buffer_size);
     if (!output) {
@@ -89,7 +89,17 @@ char *dcc_xci_read_whole_file(FILE *file, size_t *len) {
             output = new_output;
         }
 
-        pos += fread(&output[pos], 1, buffer_size - pos - 1, file);
+        count = fread(&output[pos], 1, buffer_size - pos - 1, file);
+        pos += count;
+
+        if (!count && ferror(file)) {
+          if (errno != EINTR) {
+            rs_log_error("fread failed: %s", strerror(errno));
+            goto out_error;
+          }
+
+          clearerr(file);
+        }
     }
 
     output[pos] = '\0';
