@@ -469,8 +469,7 @@ def ParseCommandArgs(args, current_dir, includepath_map, dir_map,
     """
     S = basics.SafeNormPath
     I = dir_map.Index
-    # TODO(tvl): support the framework ones, skip them for now
-    return [I(S(d)) for (d, t) in dir_list if t == basics.INCLUDE_DIR_NORMAL]
+    return [I(S(d, t)) for (d, t) in dir_list]
 
   # Now string the directory lists together according to CPP semantics.
   angle_dirs = IndexDirs(parse_state.include_dirs)
@@ -491,7 +490,7 @@ def ParseCommandArgs(args, current_dir, includepath_map, dir_map,
   # Include files are meant to be sent to the server.  They do not pose the
   # danger of absolute includes, which includepath_map is designed to avoid.
   include_files = tuple(
-      [includepath_map.Index(basics.SafeNormPath(f),
+      [includepath_map.Index(basics.SafeNormPath(f, basics.INCLUDE_DIR_NORMAL),
                              ignore_absolute_path_warning=True)
        for f in parse_state.include_files])
 

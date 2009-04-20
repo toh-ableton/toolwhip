@@ -410,7 +410,7 @@ def RaiseSignalSIGTERM(*unused_args):
 # COMMON FUNCTIONS
 
 
-def SafeNormPath(path):
+def SafeNormPath(path, directory_type):
   """Safe, but limited, version of os.path.normpath.
 
   Args:
@@ -422,10 +422,31 @@ def SafeNormPath(path):
   Python's os.path.normpath is an unsafe operation; the result may not point to
   the same file as the argument. Instead, this function just removes
   initial './'s and a final '/'s if present.
+
+  If directory_type is INCLUDE_DIR_FRAMEWORK, the normalized form contains a
+  trailing slash.
+
+  TODO: This function does not know how to normalize '/' in either mode.
   """
   if path == '.':
-    return ''
-  else:
-    while path.startswith('./'):
-      path = path[2:]
-    return path.rstrip('/')
+    if directory_type == INCLUDE_DIR_NORMAL:
+      return ''
+
+    # directory_type == INCLUDE_DIR_FRAMEWORKS
+    return './'
+
+  dot_relative = False
+  while path.startswith('./'):
+    path = path[2:]
+    dot_relative = True
+
+  path = path.rstrip('/')
+
+  if directory_type == INCLUDE_DIR_NORMAL:
+    return path
+
+  # directory_type == INCLUDE_DIR_FRAMEWORKS
+  if path == '' and dot_relative:
+    return './'
+
+  return path + '/'
