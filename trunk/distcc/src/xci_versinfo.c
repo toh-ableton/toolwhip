@@ -828,6 +828,7 @@ static char **dcc_xci_scan_developer_sdks(void) {
     char **platforms = NULL;
     char *info = NULL;
     int i, j;
+    struct stat statbuf;
 
     dev_dir = dcc_xci_xcodeselect_path();
     if (!dev_dir) goto bail_out;
@@ -838,46 +839,14 @@ static char **dcc_xci_scan_developer_sdks(void) {
      * for directories that end in '.sdk'. */
 
     snprintf(buf, sizeof(buf), "%s/SDKs", dev_dir);
-    sdk_paths = dcc_xci_directory_list(buf, "*.sdk", DT_DIR);
-    if (sdk_paths) {
-        for (i = 0 ; sdk_paths[i] ; ++i) {
-            info = dcc_xci_create_sdk_info(sdk_paths[i]);
-            if (!info) {
-                rs_log_error("failed to read sdk info, path: %s",
-                             sdk_paths[i]);
-                continue;
-            }
-            /* Add a spot, keeping space for the null on the end */
-            new_sdks = realloc(sdks, (sdk_count + 2) * sizeof(char*));
-            if (!new_sdks) {
-                rs_log_error("realloc() failed: %s", strerror(errno));
-                dcc_free_argv(sdks);
-                sdks = NULL;
-                goto bail_out;
-            }
-            sdks = new_sdks;
-            sdks[sdk_count++] = info;
-            info = NULL;
-            sdks[sdk_count] = NULL;
-        }
-        dcc_free_argv(sdk_paths);
-        sdk_paths = NULL;
-    }
-
-    snprintf(buf, sizeof(buf), "%s/Platforms", dev_dir);
-    platforms = dcc_xci_directory_list(buf, "*.platform", DT_DIR);
-    if (platforms) {
-        for (i = 0 ; platforms[i] ; ++i) {
-            snprintf(buf, sizeof(buf), "%s/Developer/SDKs", platforms[i]);
-            sdk_paths = dcc_xci_directory_list(buf, "*.sdk", DT_DIR);
-            if (!sdk_paths)
-                continue; /* No sdks, on to the next. */
-
-            for (j = 0 ; sdk_paths[j] ; ++j) {
-                info = dcc_xci_create_sdk_info(sdk_paths[j]);
+    if (stat(buf, &statbuf) == 0) {
+        sdk_paths = dcc_xci_directory_list(buf, "*.sdk", DT_DIR);
+        if (sdk_paths) {
+            for (i = 0 ; sdk_paths[i] ; ++i) {
+                info = dcc_xci_create_sdk_info(sdk_paths[i]);
                 if (!info) {
                     rs_log_error("failed to read sdk info, path: %s",
-                                 sdk_paths[j]);
+                                 sdk_paths[i]);
                     continue;
                 }
                 /* Add a spot, keeping space for the null on the end */
@@ -896,8 +865,47 @@ static char **dcc_xci_scan_developer_sdks(void) {
             dcc_free_argv(sdk_paths);
             sdk_paths = NULL;
         }
-        dcc_free_argv(platforms);
-        platforms = NULL;
+    }
+
+    snprintf(buf, sizeof(buf), "%s/Platforms", dev_dir);
+    if (stat(buf, &statbuf) == 0) {
+        platforms = dcc_xci_directory_list(buf, "*.platform", DT_DIR);
+        if (platforms) {
+            for (i = 0 ; platforms[i] ; ++i) {
+                snprintf(buf, sizeof(buf), "%s/Developer/SDKs", platforms[i]);
+                if (stat(buf, &statbuf) != 0)
+                    continue; /* directory doesn't exist, on to the next. */
+
+                sdk_paths = dcc_xci_directory_list(buf, "*.sdk", DT_DIR);
+                if (!sdk_paths)
+                    continue; /* No sdks, on to the next. */
+
+                for (j = 0 ; sdk_paths[j] ; ++j) {
+                    info = dcc_xci_create_sdk_info(sdk_paths[j]);
+                    if (!info) {
+                        rs_log_error("failed to read sdk info, path: %s",
+                                     sdk_paths[j]);
+                        continue;
+                    }
+                    /* Add a spot, keeping space for the null on the end */
+                    new_sdks = realloc(sdks, (sdk_count + 2) * sizeof(char*));
+                    if (!new_sdks) {
+                        rs_log_error("realloc() failed: %s", strerror(errno));
+                        dcc_free_argv(sdks);
+                        sdks = NULL;
+                        goto bail_out;
+                    }
+                    sdks = new_sdks;
+                    sdks[sdk_count++] = info;
+                    info = NULL;
+                    sdks[sdk_count] = NULL;
+                }
+                dcc_free_argv(sdk_paths);
+                sdk_paths = NULL;
+            }
+            dcc_free_argv(platforms);
+            platforms = NULL;
+        }
     }
 
   bail_out:
