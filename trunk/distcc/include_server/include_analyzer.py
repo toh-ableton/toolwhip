@@ -129,7 +129,8 @@ class IncludeAnalyzer(object):
       self.includepath_map.Index(file_filename),
       self.currdir_idx,
       self.directory_map.Index(file_dirpath),
-      search_list)
+      search_list,
+      self.currdir_idx)
     if fpath_resolved_pair == None:
       raise NotCoveredError("Could not find %s '%s'." % (kind, fpath),
                             send_email=False)
