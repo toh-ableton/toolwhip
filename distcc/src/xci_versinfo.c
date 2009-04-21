@@ -591,7 +591,7 @@ static char **dcc_xci_directory_list(const char *dir_path, const char *pattern,
         result = new_result;
 
         /* Include space for the slash and nul */
-        name_size = dir_len + 2 + entry->d_namlen;
+        name_size = dir_len + 2 + strlen(entry->d_name);
         result[count] = malloc(name_size);
         if (!result[count]) {
             rs_log_error("malloc() failed: %s", strerror(errno));
@@ -714,7 +714,7 @@ static char *dcc_xci_create_sdk_info(const char *path) {
     char *name = NULL, *version = NULL, *build_version = NULL, *info = NULL;
     const char *xcode_dev_dir;
     char buf[PATH_MAX + 1];
-    FILE *plist_file;
+    FILE *plist_file = NULL;
     char *plist = NULL;
     int info_size, xcode_dev_dir_len;
   
