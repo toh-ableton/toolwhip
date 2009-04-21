@@ -93,6 +93,7 @@ int dcc_strip_local_args(char **from, char ***out_argv)
             || str_equal("-iprefix", from[from_i])
             || str_equal("-iwithprefix", from[from_i])
             || str_equal("-isystem", from[from_i])
+            || str_equal("-iquote", from[from_i])
             || str_equal("-iframework", from[from_i])
             || str_equal("-iwithprefixbefore", from[from_i])
             || str_equal("-idirafter", from[from_i])
@@ -114,6 +115,7 @@ int dcc_strip_local_args(char **from, char ***out_argv)
                  || str_startswith("-MT", from[from_i])
                  || str_startswith("-MQ", from[from_i])
                  || str_startswith("-iframework", from[from_i])
+                 || str_startswith("-iquote", from[from_i])
                  || str_startswith("--sysroot", from[from_i])) {
             /* Something like "-DNDEBUG" or
              * "-Wp,-MD,.deps/nsinstall.pp".  Just skip this word */
