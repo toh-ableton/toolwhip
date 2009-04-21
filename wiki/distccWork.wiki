@@ -1,9 +1,6 @@
 #summary The pending tasks to be done for distcc
 
 The pending tasks for the distcc work
-  * see if we need to beef up -F support in the include server
-     * interleave them with -I
-     * teach the include server to look in the Frameworks's Headers dir.
   * what happens if you pass already-preprocessed input like .i and .ii to the include server?
 
 nice to have, not critical:
@@ -42,9 +39,13 @@ done:
   * reintegrate xcodedistcc advertisement via dns_sd (apple)/avahi (linux)
   * extend --host-info to include what SDKs are on the machine for use, it just needs to list the sdk nams, not the paths since those are handled via the developer dir.
   * -iframework to match like -F
-
+  * see if we need to beef up -F support in the include server - beefed up
+     * interleave them with -I - done
+     * teach the include server to look in the Frameworks's Headers dir - done
+     * handle subframework includes like apple gcc - done
 
 Things to point out to apple
+  * we have no way to deal with header maps, which Xcode loves.  many projects rely on header maps (even if they don't intend to) because it's the Xcode default.  when USE_HEADERMAP=NO in Xcode (no UI for that setting), header maps are disabled; if things can be compiled locally with that setting, then pump mode ought to be able to handle them too.
   * the gcc version must also bump if the sdks change in any way due to how system headers are moved over the wire, they need to match between all machines so they see the same headers.
   * the way that /System/Library/LaunchDaemons/distccd.plist starts distccd must change.  USE_XCODE_SELECT_PATH is no longer used.  distccd should be invoked as distccd --no-detach --daemon --zeroconf --priority WHATEVER --allow 0.0.0.0/0
   * The way xcode picks slaves needs to take into account SDKs now:
