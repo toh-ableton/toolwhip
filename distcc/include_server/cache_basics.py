@@ -647,6 +647,7 @@ class BuildStatCache(object):
     self.directory_map = directory_map
     self.realpath_map = realpath_map
     self.path_observations = []
+    self.framework_fallback = 'FRAMEWORK_FALLBACK'
 
   def _Verify(self, currdir_idx, searchdir_idx, includepath_idx):
     """Verify that the cached result is the same as obtained by stat call.
@@ -694,7 +695,7 @@ class BuildStatCache(object):
     self.path_observations = []
 
   def Resolve(self, includepath_idx, currdir_idx, searchdir_idx,
-              searchlist_idxs):
+              searchlist_idxs, includer_dir_idx):
     """Says whether (currdir_idx, searchdir_idx, includepath_idx) exists,
     and if so what its canonicalized form is (with symlinks resolved).
     TODO(csilvers): rearrange the order of the arguments.
@@ -706,6 +707,9 @@ class BuildStatCache(object):
       searchdir_idx:   A single searchdir, which is prepended to searchlist,
                        or None to not prepend to the searchlist.
       searchlist_idxs: A list of directory indices.
+      includer_dir_idx: The index of the directory containing the file that
+                        #included the file being resolved.  Used for
+                        subframework include fallbacks.
 
     Returns:
       1) (None, None) if, for all sl_idx in [searchdir_idx] + searchlist_idxs,
@@ -719,6 +723,16 @@ class BuildStatCache(object):
 
     Again, we require as a prequesite that os.getcwd() must equal currdir:
        os.getcwd() + '/' == self.directory_map.string[currdir_idx]
+
+    To support Apple-style subframework includes, if the include is not found
+    in the directories identified by searchdir_idx or searchlist_idxs, and
+    the include form appears suitable for a framework include, and the
+    including file comes from a framework, this function will look inside
+    the including framework's subframeworks directory for the include.  As the
+    Apple compiler does, this behavior is treated only as a fallback, after
+    the normal search lists are consulted.  Apple's code for handling
+    framework includes is in:
+    http://www.opensource.apple.com/darwinsource/DevToolsOct2008/gcc_42-5566/gcc/config/darwin-c.c
     """
     includepath = self.includepath_map.string[includepath_idx]
     if includepath.startswith('/'):
@@ -733,6 +747,7 @@ class BuildStatCache(object):
       dir_map = self.directory_map
       assert 0 < includepath_idx < self.includepath_map.Length()
       assert 0 < currdir_idx < dir_map.Length()
+      assert 0 < includer_dir_idx < dir_map.Length()
       assert searchdir_idx is None or 1 <= searchdir_idx < dir_map.Length()
       for sl_idx in searchlist_idxs:
         assert sl_idx < dir_map.Length()
@@ -761,7 +776,31 @@ class BuildStatCache(object):
     # This inner loop may be executed tens of millions of times.
     # Do not try to form [searchdir_idx] + searchlist_idxs -- too expensive!
     for searchlist in (searchdir_idx and [searchdir_idx] or [],
-                       searchlist_idxs):
+                       searchlist_idxs,
+                       self.framework_fallback):
+
+      if searchlist is self.framework_fallback:
+        # When the special framework_fallback object is reached, attempt to
+        # do a subframework include.  The special token defers the "might
+        # this be a framework include?" and "was it included by a framework?"
+        # analysis until it might actually be needed.
+        searchlist = []
+        if '/' in includepath:
+          # The #include has a slash in it, so it might be a framework
+          # #include.
+          includer_dir = dir_map_string[includer_dir_idx]
+          dot_framework_slash = '.framework/'
+          dot_framework_index = includer_dir.find(dot_framework_slash)
+          if dot_framework_index != -1:
+            # The includer was a framework, so look for a subframework include
+            # on this pass.
+            subframework_dir = includer_dir[0:dot_framework_index +
+                                              len(dot_framework_slash)] + \
+                               'Frameworks'
+            # *H and *P are explained in ParseCommandArgs.IndexDirs.
+            searchlist = [self.directory_map.Index('*H' + subframework_dir),
+                          self.directory_map.Index('*P' + subframework_dir)]
+
       for sl_idx in searchlist:
         if __debug__:
           statistics.search_counter += 1
