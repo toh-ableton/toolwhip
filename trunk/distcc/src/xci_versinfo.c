@@ -28,12 +28,15 @@
 #ifdef XCODE_INTEGRATION
 
 #include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
+#include <fnmatch.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/utsname.h>
 
 #include "daemon.h"
@@ -533,6 +536,382 @@ static char **dcc_xci_get_all_compiler_versions(void) {
 }
 
 /**
+ * Returns an list of items in the directory @p dir.  The matches will have
+ * the prefix directory added to them.  If @p pattern is not NULL, the entries
+ * must match that pattern (fnmatch).  If match_type is not zero, the d_type
+ * must be of the same value.
+ *
+ * NOTE: The returned value from this function is compatible with the argv
+ * functions, specifically, dcc_argv_len() and dcc_free_argv() since it is an
+ * array of strings.
+ *
+ * The returned value is a vector.  The vector and the strings within it should
+ * be disposed of and you can use dcc_free_argv().
+ **/
+static char **dcc_xci_directory_list(const char *dir_path, const char *pattern,
+                                     int match_type) {
+    DIR *dir = NULL;
+    struct dirent *entry;
+    struct dirent entry_storage;
+    char **result = NULL;
+    char **new_result;
+    int count = 0;
+    int dir_len, name_size;
+    int err = 0;
+
+    if (!dir_path) goto out_error;
+    dir_len = strlen(dir_path);
+
+    if (!(dir = opendir(dir_path))) {
+        rs_log_error("opendir(\"%s\") failed: %s", dir_path, strerror(errno));
+        goto out_error;
+    }
+
+    while (err == 0) {
+        if ((err = readdir_r(dir, &entry_storage, &entry))) {
+            rs_log_error("readdir_r() failed: %d: %s", err, strerror(err));
+            goto out_error;
+        }
+        if (!entry)
+            break; /* done */
+
+        if (match_type && (match_type != entry->d_type))
+            continue;
+        if (pattern && fnmatch(pattern, entry->d_name, 0))
+            continue;
+
+        /* If reading directories becomes important, this probably wants a
+         * better allocation system, but for now, this is good. */
+        /* Add a slot still including space for the ending null. */
+        new_result = realloc(result, (count + 2) * sizeof(char*));
+        if (!new_result) {
+            rs_log_error("realloc() failed: %s", strerror(errno));
+            goto out_error;
+        }
+        result = new_result;
+
+        /* Include space for the slash and nul */
+        name_size = dir_len + 2 + entry->d_namlen;
+        result[count] = malloc(name_size);
+        if (!result[count]) {
+            rs_log_error("malloc() failed: %s", strerror(errno));
+            goto out_error;
+        }
+        snprintf(result[count++], name_size, "%s/%s", dir_path, entry->d_name);
+    }
+
+    /* If it has anything, we need need to put the ending NULL */
+    if (count)
+        result[count] = NULL;
+
+    if (closedir(dir)) {
+        rs_log_error("closedir(\"%s\") failed: %s", dir_path, strerror(errno));
+        /* Keep going since we got the data we needed */
+    }
+  
+    return result;
+
+  out_error:
+    if (dir)
+        closedir(dir);
+    if (result) {
+        while (count--) {
+            if (result[count])
+                free(result[count]);
+        }
+        free(result);
+    }
+    return NULL;
+}
+
+/**
+ * Looks up key in the plist, and returns the string value found for it.
+ *
+ * If the key is found, the value string is return as a buffer the caller owns.
+ * If the key isn't found, or the value isn't a string, NULL is returned.
+ *
+ * Plists really are structured data.  In most cases, they are xml blobs; but
+ * there is also a binary format, but we don't support those as they don't seem
+ * to be used for the SDK information.  We don't really want to drag in full
+ * xml processing, so we just do a very simple string lookup, and we don't
+ * bother with entity decoding.
+ **/
+static char *dcc_xci_plist_string_value(const char *plist, const char *key) {
+    const char *s, *value_start;
+    const char key_begin[] = "<key>";
+    const char key_end[] = "</key>";
+    const char marker_begin[] = "<string>";
+    const char marker_end[] = "</string>";
+    char *find, *value = NULL;
+    size_t find_size;
+    int value_len;
+
+    /* We need space to wrap the key in xml tagging of "<key>" and "</key>".
+     * The sizes of the keys give us space for the ending nul. */
+    find_size = sizeof(key_begin) + strlen(key) + sizeof(key_end) - 1;
+    if (!(find = malloc(find_size * sizeof(char)))) {
+        rs_log_error("malloc() failed: %s", strerror(errno));
+        goto bail_out;
+    }
+    snprintf(find, find_size, "%s%s%s", key_begin, key, key_end);
+  
+    /* Find the key marker */
+    if (!(s = strstr(plist, find))) {
+        rs_log_error("key \"%s\" wasn't found", key);
+        goto bail_out;
+    }
+    s += strlen(find);
+  
+    /* Skip whitespace */
+    while (*s && isspace(*s)) ++s;
+  
+    /* Should be pointing at "<string>" (-1 for length because of the nul). */
+    if (strncmp(s, marker_begin, sizeof(marker_begin) - 1)) {
+        rs_log_error("Failed to find expected \"%s\"", marker_begin);
+        goto bail_out;
+    }
+    s += sizeof(marker_begin) - 1;
+    value_start = s;
+
+    /* Find the ending marker */
+    if (!(s = strstr(s, marker_end))) {
+        rs_log_error("Failed to find expected \"%s\"", marker_end);
+        goto bail_out;
+    }
+
+    value_len = s - value_start;
+    value = malloc((value_len + 1) * sizeof(char));
+    if (!value) {
+        rs_log_error("malloc() failed: %s", strerror(errno));
+        goto bail_out;
+    }
+    strncpy(value, value_start, value_len);
+    value[value_len] = '\0';
+  
+  bail_out:
+    if (find)
+        free(find);
+    
+    return value;
+}
+
+/**
+ * Returns a summary string for the SDK at the given path.  On any error or
+ * missing data, NULL is returned.
+ *
+ * The summary is build using these two files:
+ * SDKS = [SDK_DIR]/SDKSettings.plist
+ * SYSVER = [SDK_DIR]/System/Library/CoreServices/SystemVersion.plist
+ * the summary is (all on one line):
+ *   SDKS:CanonicalName SYSVER:ProductVersion
+ *                                       SYSVER:ProductBuildVersion SDK_DIR
+ * e.g. "macosx10.5 10.5 9M2621 SDKs/MacOSX10.5.sdk"
+ *
+ * The result string is a buffer owned by the caller.
+ **/
+static char *dcc_xci_create_sdk_info(const char *path) {
+    const char *sdk_path;
+    char *name = NULL, *version = NULL, *build_version = NULL, *info = NULL;
+    const char *xcode_dev_dir;
+    char buf[PATH_MAX + 1];
+    FILE *plist_file;
+    char *plist = NULL;
+    int info_size, xcode_dev_dir_len;
+  
+    /* Sanity check */
+    xcode_dev_dir = dcc_xci_xcodeselect_path();
+    xcode_dev_dir_len = strlen(xcode_dev_dir);
+    if ((strncmp(path, xcode_dev_dir, xcode_dev_dir_len) != 0)
+        || (path[xcode_dev_dir_len] != '/')) {
+        rs_log_error("\"%s\" is not in the Xcode developer dir (%s)",
+                     path, xcode_dev_dir);
+        goto bail_out;
+    }
+
+    /* Skip past the developer dir and following slash. */
+    sdk_path = path + xcode_dev_dir_len + 1;
+
+    snprintf(buf, sizeof(buf), "%s/SDKSettings.plist", path);
+    if (!(plist_file = fopen(buf, "r"))) {
+        rs_log_error("fopen(%s) failed: %s", buf, strerror(errno));
+        goto bail_out;
+    }
+    if (!(plist = dcc_xci_read_whole_file(plist_file, NULL))) {
+        rs_log_error("Failed to read all of \"%s\"", buf);
+        goto bail_out;
+    }
+    fclose(plist_file);
+    plist_file = NULL;
+  
+    name = dcc_xci_plist_string_value(plist, "CanonicalName");
+    if (!name) {
+        rs_log_error("%s didn't have CanonicalName", buf);
+        goto bail_out;
+    }
+    free(plist);
+    plist = NULL;
+
+    snprintf(buf, sizeof(buf),
+             "%s/System/Library/CoreServices/SystemVersion.plist", path);
+    if (!(plist_file = fopen(buf, "r"))) {
+        rs_log_error("fopen(%s) failed: %s", buf, strerror(errno));
+        goto bail_out;
+    }
+    if (!(plist = dcc_xci_read_whole_file(plist_file, NULL))) {
+        rs_log_error("Failed to read all of \"%s\"", buf);
+        goto bail_out;
+    }
+    fclose(plist_file);
+    plist_file = NULL;
+  
+    version = dcc_xci_plist_string_value(plist, "ProductVersion");
+    if (!version) {
+        rs_log_error("%s didn't have ProductVersion", buf);
+        goto bail_out;
+    }
+
+    build_version = dcc_xci_plist_string_value(plist, "ProductBuildVersion");
+    if (!build_version) {
+        rs_log_error("%s didn't have ProductBuildVersion", buf);
+        goto bail_out;
+    }
+
+    /* The length of the strings plus the spaces between them and the nul on
+     * the end. */
+    info_size = strlen(name) + 1 + strlen(version) + 1 +
+        strlen(build_version) + 1 + strlen(sdk_path) + 1;
+    info = malloc(info_size * sizeof(char));
+    if (!info) {
+        rs_log_error("malloc(%d) failed: %s", info_size, strerror(errno));
+        goto bail_out;
+    }
+    snprintf(info, info_size, "%s %s %s %s",
+             name, version, build_version, sdk_path);
+
+  bail_out:
+    /* Cleanup temps on the way out (good or bad). */
+    if (name)
+        free(name);
+    if (version)
+        free(version);
+    if (build_version)
+        free(build_version);
+    if (plist)
+        free(plist);
+    if (plist_file)
+        fclose(plist_file);
+ 
+    return info;
+}
+
+/**
+ * Returns a vector of descriptions of all Mac OS X and iPhone SDKs available.
+ * This is done by scanning the directories under the Xcode developer
+ * directory.
+ *
+ * NOTE: xcodebuild supports -showsdks & xcodebuild -version -sdk [path]
+ * but we want this to work on any system that has the SDKs installed, but may
+ * not have Xcode installed, and may not even be a Mac, so we do manual
+ * parsing/scanning.
+ *
+ * Since the result is a vector of strings, it can be cleaned up with
+ * dcc_free_argv()
+ *
+ * A result of NULL doesn't mean failure, it could mean no SDKs were found.
+ **/
+static char **dcc_xci_scan_developer_sdks(void) {
+    char **sdks = NULL, **new_sdks;
+    int sdk_count = 0;
+    const char *dev_dir;
+    char buf[PATH_MAX + 1];
+    char **sdk_paths = NULL;
+    char **platforms = NULL;
+    char *info = NULL;
+    int i, j;
+
+    dev_dir = dcc_xci_xcodeselect_path();
+    if (!dev_dir) goto bail_out;
+
+    /* As of Xcode 3.1.x, we need to look in:
+     *   [XCODE_DEVELOPER]/Developer/SDKs
+     *   [XCODE_DEVELOPER]/Platforms/[ANYTHING].platform/Developer/SDKs
+     * for directories that end in '.sdk'. */
+
+    snprintf(buf, sizeof(buf), "%s/SDKs", dev_dir);
+    sdk_paths = dcc_xci_directory_list(buf, "*.sdk", DT_DIR);
+    if (sdk_paths) {
+        for (i = 0 ; sdk_paths[i] ; ++i) {
+            info = dcc_xci_create_sdk_info(sdk_paths[i]);
+            if (!info) {
+                rs_log_error("failed to read sdk info, path: %s",
+                             sdk_paths[i]);
+                continue;
+            }
+            /* Add a spot, keeping space for the null on the end */
+            new_sdks = realloc(sdks, (sdk_count + 2) * sizeof(char*));
+            if (!new_sdks) {
+                rs_log_error("realloc() failed: %s", strerror(errno));
+                dcc_free_argv(sdks);
+                sdks = NULL;
+                goto bail_out;
+            }
+            sdks = new_sdks;
+            sdks[sdk_count++] = info;
+            info = NULL;
+            sdks[sdk_count] = NULL;
+        }
+        dcc_free_argv(sdk_paths);
+        sdk_paths = NULL;
+    }
+
+    snprintf(buf, sizeof(buf), "%s/Platforms", dev_dir);
+    platforms = dcc_xci_directory_list(buf, "*.platform", DT_DIR);
+    if (platforms) {
+        for (i = 0 ; platforms[i] ; ++i) {
+            snprintf(buf, sizeof(buf), "%s/Developer/SDKs", platforms[i]);
+            sdk_paths = dcc_xci_directory_list(buf, "*.sdk", DT_DIR);
+            if (!sdk_paths)
+                continue; /* No sdks, on to the next. */
+
+            for (j = 0 ; sdk_paths[j] ; ++j) {
+                info = dcc_xci_create_sdk_info(sdk_paths[j]);
+                if (!info) {
+                    rs_log_error("failed to read sdk info, path: %s",
+                                 sdk_paths[j]);
+                    continue;
+                }
+                /* Add a spot, keeping space for the null on the end */
+                new_sdks = realloc(sdks, (sdk_count + 2) * sizeof(char*));
+                if (!new_sdks) {
+                    rs_log_error("realloc() failed: %s", strerror(errno));
+                    dcc_free_argv(sdks);
+                    sdks = NULL;
+                    goto bail_out;
+                }
+                sdks = new_sdks;
+                sdks[sdk_count++] = info;
+                info = NULL;
+                sdks[sdk_count] = NULL;
+            }
+            dcc_free_argv(sdk_paths);
+            sdk_paths = NULL;
+        }
+        dcc_free_argv(platforms);
+        platforms = NULL;
+    }
+
+  bail_out:
+    /* Normal or error cleanup */
+    if (info)
+        free(info);
+    if (sdk_paths)
+        dcc_free_argv(sdk_paths);
+    if (platforms)
+        dcc_free_argv(platforms);
+    return sdks;
+}
+
+/**
  * Return a string containing host information, including hardware information,
  * the OS version, and compiler versions.  Information that can't be collected
  * due to errors is omitted from the report.
@@ -551,6 +930,7 @@ const char *dcc_xci_host_info_string() {
     static const char cpuspeed_key[] = "CPUSPEED=";
     static const char jobs_key[] = "JOBS=";
     static const char priority_key[] = "PRIORITY=";
+    static const char sdk_key[] = "SDK=";
     static int has_host_info = 0;
     static char *host_info = NULL;
     int len = 0, pos = 0, ncpus;
@@ -558,7 +938,8 @@ const char *dcc_xci_host_info_string() {
     char *info = NULL;
     const char *sys;
     char **compilers = NULL, **compiler;
-
+    char **sdks, **sdk = NULL;
+  
     if (has_host_info)
         return host_info;
 
@@ -591,6 +972,12 @@ const char *dcc_xci_host_info_string() {
 
     len += sizeof(priority_key) + int_decimal_len;
 
+    sdks = dcc_xci_scan_developer_sdks();
+    if (sdks) {
+        for (sdk = sdks; *sdk; ++sdk)
+            len += sizeof(sdk_key) + strlen(*sdk);
+    }
+  
     /* Leave room for a NUL terminator at the end of the entire string. */
     ++len;
 
@@ -647,6 +1034,16 @@ const char *dcc_xci_host_info_string() {
     if (pos >= len)
         goto out_error_info_size;
 
+    if (sdks) {
+        for (sdk = sdks; *sdk; ++sdk) {
+            pos += snprintf(info + pos, len - pos, "%s%s\n", sdk_key, *sdk);
+            if (pos >= len)
+                goto out_error_info_size;
+        }
+        dcc_free_argv(sdks);
+        sdks = NULL;
+    }
+
     /* Trim the buffer to the size actually used. */
     if (pos + 1 < len) {
         if (!(host_info = realloc(info, pos + 1))) {
@@ -668,6 +1065,8 @@ const char *dcc_xci_host_info_string() {
         free(info);
     if (compilers)
         free(compilers);
+    if (sdks)
+        dcc_free_argv(sdks);
 
     return NULL;
 }
