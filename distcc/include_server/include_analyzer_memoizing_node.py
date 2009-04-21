@@ -445,8 +445,9 @@ class IncludeAnalyzerMemoizingNode(include_analyzer.IncludeAnalyzer):
          self.mirrored.add((fp_resolved_pair, currdir_idx))
          self.mirror_path.DoPath(
             os.path.join(dir_map.string[currdir_idx],
-                         dir_map.string[d_],
-                         includepath_map.string[fp_]),
+                         basics.PathFromDirMapEntryAndInclude(
+                                                dir_map.string[d_],
+                                                includepath_map.string[fp_])),
             currdir_idx,
             self.client_root_keeper.client_root)
 

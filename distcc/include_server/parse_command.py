@@ -469,8 +469,22 @@ def ParseCommandArgs(args, current_dir, includepath_map, dir_map,
     """
     S = basics.SafeNormPath
     I = dir_map.Index
-    # TODO(tvl): support the framework ones, skip them for now
-    return [I(S(d)) for (d, t) in dir_list if t == basics.INCLUDE_DIR_NORMAL]
+
+    idx_list = []
+    for (d, t) in dir_list:
+      d = S(d)
+      if t == basics.INCLUDE_DIR_NORMAL:
+        idx_list.append(I(d))
+      else:
+        assert t == basics.INCLUDE_DIR_FRAMEWORKS
+        # We encode framework search dirs, by adding a leanding '*', and
+        # then 'H' and 'P' to represent the Headers and PrivateHeaders dirs.
+        # So when compinging directories with fragments there is always a
+        # clean mapping.
+        idx_list.append(I('*H' + d))
+        idx_list.append(I('*P' + d))
+
+    return idx_list
 
   # Now string the directory lists together according to CPP semantics.
   angle_dirs = IndexDirs(parse_state.include_dirs)

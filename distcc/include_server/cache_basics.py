@@ -337,9 +337,11 @@ class DirnameCache(object):
     try:
       return self.cache[(currdir_idx, searchdir_idx, includepath_idx)]
     except KeyError:
-      directory = os.path.dirname(os.path.join(
-         self.directory_map.string[searchdir_idx],
-         self.includepath_map.string[includepath_idx]))
+      full_path = basics.PathFromDirMapEntryAndInclude(
+                                  self.directory_map.string[searchdir_idx],
+                                  self.includepath_map.string[includepath_idx])
+      assert full_path
+      directory = os.path.dirname(full_path)
       dir_idx = self.directory_map.Index(directory)
       rp_idx = self.realpath_map.Index(
           os.path.join(self.directory_map.string[currdir_idx],
@@ -580,6 +582,11 @@ def RetrieveDirectoriesExceptSys(directory_map, realpath_map,
   for dir_idx in directory_idxs:
     # Index the absolute path; this will let us know whether dir_idx is under a
     # default systemdir of the compiler.
+
+    # NOTE: This does NOT handle the directory_map entries for framework
+    # search paths that start with '*H'/'*P', but this routine is only called
+    # from parse_command_test.py so we're letting it go.
+
     rp_idx = realpath_map.Index(os.path.join(
 	os.getcwd(), directory_map.string[dir_idx]))
     systemdir_prefix_cache.FillCache(realpath_map)
@@ -654,15 +661,19 @@ class BuildStatCache(object):
     # use + instead of the more expensive os.path.join().
     # Make sure $PWD is currdir, so we don't need to include it in our stat().
     assert os.getcwd() + '/' == self.directory_map.string[currdir_idx]
-    really_exists = _OsPathIsFile(
-      self.directory_map.string[searchdir_idx]
-      + self.includepath_map.string[includepath_idx])
+    built_path = basics.PathFromDirMapEntryAndInclude(
+                             self.directory_map.string[searchdir_idx],
+                             self.includepath_map.string[includepath_idx])
+    really_exists = built_path and _OsPathIsFile(built_path) or False
     cache_exists = self.build_stat[currdir_idx][includepath_idx][searchdir_idx]
     assert isinstance(cache_exists, bool)
     if cache_exists != really_exists:
       filepath = os.path.join(self.directory_map.string[currdir_idx],
-                              self.directory_map.string[searchdir_idx],
-                              self.includepath_map.string[includepath_idx])
+                              basics.PathFromDirMapEntryAndInclude(
+                                self.directory_map.string[searchdir_idx],
+                                self.includepath_map.string[includepath_idx]) or
+                              (self.directory_map.string[searchdir_idx] +
+                               self.includepath_map.string[includepath_idx]))
       sys.exit("FATAL ERROR: "
                "Cache inconsistency: '%s' %s, but earlier this path %s." % (
         filepath,
@@ -776,8 +787,9 @@ class BuildStatCache(object):
         if __debug__: statistics.sys_stat_counter += 1
         # We do not explictly take into account currdir_idx, because
         # of the check above that os.getcwd is set to current_dir.
-        relpath = dir_map_string[sl_idx] + includepath
-        if _OsPathIsFile(relpath):
+        relpath = basics.PathFromDirMapEntryAndInclude(
+                                         dir_map_string[sl_idx], includepath)
+        if relpath and _OsPathIsFile(relpath):
           searchdir_stats[sl_idx] = True
           rpath = os.path.join(dir_map_string[currdir_idx], relpath)
           realpath_idx = searchdir_realpaths[sl_idx] = (
