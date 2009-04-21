@@ -11,7 +11,6 @@ The pending tasks for the distcc work
 nice to have, not critical:
   * move the language bits in tests into helper objects so we don't have to repeat so much in the tests
   * DISTCC_HOSTS token to indicate that xcodedistcc zeroconf hosts should be collected, similar to +zeroconf for native distcc zeroconf hosts
-  * extend --host-info to include what SDKs are on the machine for use, it just needs to list the sdk nams, not the paths since those are handled via the developer dir.
 
 
 done:
@@ -43,12 +42,13 @@ done:
   * remove GNU Make-ism (filter-out) from Makefile, move the logic into configure.  Make -DXCODE_INTEGRATION something that configure knows how to set.
   * update the makefile to not compile the xci files if xcode integration isn't enabled.
   * reintegrate xcodedistcc advertisement via dns_sd (apple)/avahi (linux)
+  * extend --host-info to include what SDKs are on the machine for use, it just needs to list the sdk nams, not the paths since those are handled via the developer dir.
 
 
 Things to point out to apple
   * the gcc version must also bump if the sdks change in any way due to how system headers are moved over the wire, they need to match between all machines so they see the same headers.
   * the way that /System/Library/LaunchDaemons/distccd.plist starts distccd must change.  USE_XCODE_SELECT_PATH is no longer used.  distccd should be invoked as distccd --no-detach --daemon --zeroconf --priority WHATEVER --allow 0.0.0.0/0
-  * The way xcode picks slaves needs to take into account SDKs now (see the nice to have about extending hostinfo for this):
+  * The way xcode picks slaves needs to take into account SDKs now:
      * if no SDK set in xcode project/target, only pick machines on the same major OS version.
      * if SDK set in xcode project/target, then as picking hosts only pick hosts that have that SDK installed.
   * It might be nice to add --randomize to DISTCC_HOSTS, but that might interfere with Xcode's priority scheme.  Still, Xcode can randomize DISTCC_HOSTS a bit before invoking each distcc.
