@@ -179,7 +179,7 @@ dcc_send_header(int net_fd,
                     goto out_error;
                 }
                 new_argv[i+1] = strdup(new_lang);
-                if (new_argv[i+1]) {
+                if (!new_argv[i+1]) {
                     rs_log_error("failed to duplicate string");
                     ret = EXIT_OUT_OF_MEMORY;
                     goto out_error;

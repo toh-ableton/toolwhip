@@ -856,6 +856,7 @@ char *dcc_replace_substring(const char *s,
         s_left -= (next - s);
         strcpy(buf + buf_pos, replace);
         buf_pos += replace_len;
+        s_left -= find_len;
 
         s = next + find_len;
     }
