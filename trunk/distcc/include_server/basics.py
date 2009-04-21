@@ -429,3 +429,31 @@ def SafeNormPath(path):
     while path.startswith('./'):
       path = path[2:]
     return path.rstrip('/')
+
+def PathFromDirMapEntryAndInclude(dirmap_entry, leaf):
+  """Takes a DirectoryMap entry and leaf path and builds a full path for it.
+  
+  DirectoryMap entries already have a trailing slash, so the strings
+  can just be appended together.  *BUT* when we put framework search paths
+  into the DirectoryMap, we list them twice prefixed with "*H" and "*P" to
+  tell the rest of the code that the leaf must be processed according to
+  framework rules to build the path.
+  
+  If the leaf is invalid for a framework search, and dirmap_entry is
+  a framework search directory, None is returned.
+  """
+  if not dirmap_entry or dirmap_entry[0] != '*':
+    return dirmap_entry + leaf
+
+  if not '/' in leaf:
+    # Frameworks must be #included with at least one slash separating
+    # the framework name from the header name.
+    return None
+
+  (i_fwk, i_hdr) = leaf.split('/', 1)
+  i_fwk = i_fwk + '.framework/'
+  if dirmap_entry[1] == 'H':
+    return dirmap_entry[2:] + i_fwk + 'Headers/' + i_hdr
+
+  assert dirmap_entry[1] == 'P'
+  return dirmap_entry[2:] + i_fwk + 'PrivateHeaders/' + i_hdr

@@ -22,6 +22,7 @@
 import os
 import sys
 import os.path
+import basics
 
 import distcc_pump_c_extensions
 
@@ -83,9 +84,11 @@ class CompressFiles(object):
           sys.exit("Could not make directory '%s': %s" % (dirname, why))
         if new_filepath.endswith('.abs'):
           (searchdir_idx, includepath_idx) = include_closure[realpath_idx][0]
-          # TODO(csilvers): can't we use + here instead of os.path.join?
-          filepath = os.path.join(self.directory_map.string[searchdir_idx],
-                                  self.includepath_map.string[includepath_idx])
+          filepath = \
+            basics.PathFromDirMapEntryAndInclude(
+                                   self.directory_map.string[searchdir_idx],
+                                   self.includepath_map.string[includepath_idx])
+          assert filepath
           # This file is included through say -I/foo, but /foo does not exist
           # on the compiler server. Instead, this file will put under some
           # /serverrootpath/foo there. The #line directive informs the compiler
