@@ -4,8 +4,6 @@ The pending tasks for the distcc work
   * see if we need to beef up -F support in the include server
      * interleave them with -I
      * teach the include server to look in the Frameworks's Headers dir.
-     * question: are we ok with the overhead for frameworks on all platforms since it's in the include_server and we can ifdef it? -- yes, no real good way around it, just try to minimize the impact.
-  * -iheader/-iframework need to match like -I/-F
   * what happens if you pass already-preprocessed input like .i and .ii to the include server?
 
 nice to have, not critical:
@@ -43,6 +41,7 @@ done:
   * update the makefile to not compile the xci files if xcode integration isn't enabled.
   * reintegrate xcodedistcc advertisement via dns_sd (apple)/avahi (linux)
   * extend --host-info to include what SDKs are on the machine for use, it just needs to list the sdk nams, not the paths since those are handled via the developer dir.
+  * -iframework to match like -F
 
 
 Things to point out to apple
