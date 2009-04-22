@@ -1676,6 +1676,35 @@ class Subframework_Case(FrameworkSupport_Case):
         f.close()
 
 
+class LinkyFramework_Case(FrameworkSupport_Case):
+    """Test frameworks with internal symbolic links set up the way that
+    Apple-style frameworks usually use them."""
+
+    def frameworkDirs(self):
+        return [ "fwk/Umbrella.framework/Versions/A/Headers",
+                 "fwk/Umbrella.framework/Versions/A/Frameworks/Sub.framework/Versions/A/Headers" ]
+
+    def compileOpts(self):
+        return "-Ffwk"
+
+    def includeDirective(self):
+        return "#include <Umbrella/One.h>"
+
+    def headerFilename(self):
+        return "fwk/Umbrella.framework/Versions/A/Frameworks/Sub.framework/Versions/A/Headers/Two.h"
+
+    def createSource(self):
+        FrameworkSupport_Case.createSource(self)
+        f = open('fwk/Umbrella.framework/Versions/A/Headers/One.h', 'w')
+        f.write("#include <Sub/Two.h>\n")
+        f.close()
+        os.symlink('A', 'fwk/Umbrella.framework/Versions/Current')
+        os.symlink('Versions/Current/Headers', 'fwk/Umbrella.framework/Headers')
+        os.symlink('Versions/Current/Frameworks', 'fwk/Umbrella.framework/Frameworks')
+        os.symlink('A', 'fwk/Umbrella.framework/Versions/A/Frameworks/Sub.framework/Versions/Current')
+        os.symlink('Versions/Current/Headers', 'fwk/Umbrella.framework/Versions/A/Frameworks/Sub.framework/Headers')
+
+
 class Gdb_Case(CompileHello_Case):
     """Test that distcc generates correct debugging information."""
 
@@ -2635,6 +2664,7 @@ tests = [
          FrameworkAngleHeader_Case,
          FrameworkAnglePrivateHeader_Case,
          Subframework_Case,
+         LinkyFramework_Case,
          # slow tests below here
          Concurrent_Case,
          HundredFold_Case,
