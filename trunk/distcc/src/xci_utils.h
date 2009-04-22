@@ -34,6 +34,8 @@ char *dcc_xci_run_command(const char *command_line);
 const char *dcc_xci_xcodeselect_path(void);
 char *dcc_xci_mask_developer_dir(const char *path);
 char *dcc_xci_unmask_developer_dir(const char *path);
+void dcc_xci_perhaps_adjust_cpp_where_from_args(char **argv,
+                                                struct dcc_hostdef *host);
 
 #endif /* XCODE_INTEGRATION */
 
