@@ -59,6 +59,9 @@
 #include "include_server_if.h"
 #include "emaillog.h"
 #include "dotd.h"
+#ifdef XCODE_INTEGRATION
+  #include "xci_utils.h"
+#endif
 
 /**
  * This boolean is true iff --scan-includes option is enabled.
@@ -551,6 +554,11 @@ dcc_build_somewhere(char *argv[],
         /* Perhaps it is not a good idea to preprocess on the server. */
         dcc_perhaps_adjust_cpp_where_and_protover(input_fname, host,
                                                   discrepancy_filename);
+#ifdef XCODE_INTEGRATION
+        /* There are some apple-gcc additions that end up requiring
+         * preprocessing happen on the client. */
+        dcc_xci_perhaps_adjust_cpp_where_from_args(argv, host);
+#endif
     }
     if (dcc_scan_includes) {
         ret = dcc_approximate_includes(host, argv);
