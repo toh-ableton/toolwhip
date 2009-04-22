@@ -477,10 +477,10 @@ def ParseCommandArgs(args, current_dir, includepath_map, dir_map,
         idx_list.append(I(d))
       else:
         assert t == basics.INCLUDE_DIR_FRAMEWORKS
-        # We encode framework search dirs, by adding a leanding '*', and
+        # We encode framework search dirs, by adding a leading '*', and
         # then 'H' and 'P' to represent the Headers and PrivateHeaders dirs.
-        # So when compinging directories with fragments there is always a
-        # clean mapping.
+        # So when combining directories with fragments there is always a
+        # clean 1 to 1 mapping.
         idx_list.append(I('*H' + d))
         idx_list.append(I('*P' + d))
 
