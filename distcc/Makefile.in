@@ -758,7 +758,7 @@ pump-maintainer-check: pump include-server check_programs
 
 # Do distcc-maintainer-check in lzo-mode (without pump), if possible.
 lzo-maintainer-check: check_programs
-	DISTCC_HOSTS='<invalid>,cpp' \
+	@DISTCC_HOSTS='<invalid>,cpp' \
 	  $(MAKE) \
 	      RESTRICTED_PATH="$(RESTRICTED_PATH)" \
 	      TESTDISTCC_OPTS="--lzo $(TESTDISTCC_OPTS)" \
