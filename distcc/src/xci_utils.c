@@ -37,7 +37,6 @@
 
 #include "distcc.h"
 #include "dopt.h"
-#include "hosts.h"
 #include "trace.h"
 #include "util.h"
 #include "xci_utils.h"
@@ -261,44 +260,6 @@ char *dcc_xci_unmask_developer_dir(const char *path) {
                      "\"%s\".", path);
     }
     return result;
-}
-
-/**
- * Scans the argument list for any apple-gcc additions that force the cpp
- * step to happen on the client instead of the server.  If it finds any
- * it will addjust the cpp_where in @p host.
- */
-void dcc_xci_perhaps_adjust_cpp_where_from_args(char **argv,
-                                                struct dcc_hostdef *host) {
-    char **a, *val;
-    static const char dotHmap[] = ".hmap";
-    unsigned int len;
-
-    /* It's unfortunate that the variable that controls preprocessing is in the
-     * "host" datastructure. See elaborate complaint in dcc_build_somewhere. */
-
-    for (a = argv; *a; a++) {
-
-        if (str_startswith("-I", *a) || str_startswith("-iquote", *a)) {
-
-            if (!strcmp("-I", *a) || !strcmp("-iquote", *a))
-                val = a[1];
-            else
-                val = *a + ((*a)[1] == 'I' ? 2 : 7); /* Skip the arg start */
-
-            if (val) {
-                len = strlen(val);
-                if ((len >= sizeof(dotHmap))
-                    && !strcmp(dotHmap, val + (len - sizeof(dotHmap) + 1))) {
-                    rs_log_warning("use of header maps (.hmap) causes client"
-                                   " cpp, consider USE_HEADERMAP=NO.");
-                    host->cpp_where = DCC_CPP_ON_CLIENT;
-                    break;
-                }
-            }
-        }
-
-    }
 }
 
 #endif /* XCODE_INTEGRATION */
