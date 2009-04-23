@@ -167,6 +167,7 @@ include_server_PY = \
 	include_server/cache_basics.py \
 	include_server/compiler_defaults.py \
 	include_server/compress_files.py \
+	include_server/headermap.py \
 	include_server/include_analyzer.py \
 	include_server/include_analyzer_memoizing_node.py \
 	include_server/include_server.py \
