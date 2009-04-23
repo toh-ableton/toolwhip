@@ -192,6 +192,7 @@ import os.path
 import sys
 
 import basics
+import headermap
 import statistics
 import compiler_defaults
 
@@ -733,6 +734,10 @@ class BuildStatCache(object):
     the normal search lists are consulted.  Apple's code for handling
     framework includes is in:
     http://www.opensource.apple.com/darwinsource/DevToolsOct2008/gcc_42-5566/gcc/config/darwin-c.c
+
+    This also supports header map lookups: if any sl_idx in [searchdir_idx] +
+    searchlist_idxs corresponds to a header map file, that header map will
+    be checked for includepath rather than searching the filesystem.
     """
     includepath = self.includepath_map.string[includepath_idx]
     if includepath.startswith('/'):
@@ -812,6 +817,9 @@ class BuildStatCache(object):
           # relative to the sp directory.  We're optimizing for this
           # case of course. That should give us a rate of a couple of
           # million iterations per second (for this case).
+          #
+          # _Verify should never be called when sl_idx corresponds to a
+          # header map.
           if searchdir_stats[sl_idx] == False:
             if __debug__: self._Verify(currdir_idx, sl_idx, includepath_idx)
             continue
@@ -823,13 +831,49 @@ class BuildStatCache(object):
           searchdir_realpaths.extend([None] * max(sl_idx, len(searchdir_stats)))
 
         # If we get here, result is not cached yet.
-        if __debug__: statistics.sys_stat_counter += 1
-        # We do not explictly take into account currdir_idx, because
-        # of the check above that os.getcwd is set to current_dir.
-        relpath = basics.PathFromDirMapEntryAndInclude(
-                                         dir_map_string[sl_idx], includepath)
-        if relpath and _OsPathIsFile(relpath):
-          searchdir_stats[sl_idx] = True
+        sl_str = dir_map_string[sl_idx]
+
+        # If this search "directory" is actually a header map, query the
+        # header map.  Apple gcc does a file type check for this, we cheat
+        # and look for "directories" whose names end in ".hmap", as that's
+        # how Xcode always saves its header maps.  os.path.abspath causes
+        # the header map to be taken as relative to currdir_idx because
+        # os.getcwd() == currdir within this function.
+        relpath = \
+            sl_str.endswith('.hmap/') and \
+            headermap.global_collection.Resolve(os.path.abspath(sl_str),
+                                                includepath)
+        if relpath:
+          if relpath[-len(includepath):] == includepath:
+            # When relpath ends with includepath, just strip includepath off
+            # and use the preceding part of relpath as the directory that
+            # contains the header.
+            sl_str = relpath[0:-len(includepath)]
+          else:
+            # When relpath does not end with includepath, rewrite includepath
+            # to just be the last component of relpath, and use the preceding
+            # part of relpath as the directory that contains the header.
+            # This invalidates includepath_idx!
+            includepath = os.path.basename(relpath)
+            sl_str = os.path.dirname(relpath) + '/'
+
+          sl_idx = self.directory_map.Index(sl_str[:-1])
+
+          # Trust the header map.  Don't check for the file on disk, and
+          # don't touch searchdir_stats.  It's necessary to leave
+          # searchdir_stats alone to avoid calling _Verify, and because
+          # searchdir_stats is based on includepath_idx which may no longer
+          # correspond to includepath.
+          found = True
+        else:
+          if __debug__: statistics.sys_stat_counter += 1
+          # We do not explictly take into account currdir_idx, because
+          # of the check above that os.getcwd is set to current_dir.
+          relpath = basics.PathFromDirMapEntryAndInclude(sl_str, includepath)
+          found = relpath and _OsPathIsFile(relpath)
+          searchdir_stats[sl_idx] = found
+
+        if found:
           rpath = os.path.join(dir_map_string[currdir_idx], relpath)
           realpath_idx = searchdir_realpaths[sl_idx] = (
             self.realpath_map.Index(rpath))
@@ -840,8 +884,6 @@ class BuildStatCache(object):
             if basics.opt_path_observation_re.search(realpath):
               self.path_observations.append((includepath, relpath, realpath))
           return ((sl_idx, includepath_idx), realpath_idx)
-        else:
-          searchdir_stats[sl_idx] = False
 
     if __debug__: Debug(DEBUG_TRACE2, "Resolve: failed")
     return (None, None)
