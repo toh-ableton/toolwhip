@@ -253,12 +253,28 @@ class IncludeAnalyzer(object):
                                        self.directory_map,
                                        self.compiler_defaults,
                                        self.timer))
-    (unused_quote_dirs, unused_angle_dirs, unused_include_files, source_file,
+    (quote_dirs, unused_angle_dirs, unused_include_files, source_file,
      result_file_prefix, unused_Dopts) = parsed_command
+
+    realpath_map = self.realpath_map
 
     # Do the real work.
     include_closure = (
       self.ProcessCompilationCommand(currdir, parsed_command))
+
+    # Look for header maps that are also used during the compilation.  Apple
+    # gcc is instructed to use header maps by being given an -I or -iquote
+    # referencing a header map file instead of a directory, so look through
+    # the set of known include directories for header maps.  Use quote_dirs
+    # because it contains all of the angle dirs as well.  hmap_closure is not
+    # a proper closure, but it's faked up to be compatible with the
+    # include_closure format expected by self.compress_files.Compress.
+    hmap_closure = {}
+    for dir_idx in quote_dirs:
+      dir_str = self.directory_map.string[dir_idx]
+      if dir_str.endswith('.hmap/'):
+        hmap_closure[realpath_map.Index(os.path.abspath(dir_str))] = []
+
     # Cancel timer before I/O in compress_files.
     if self.timer:  # timer may not always exist when testing
       self.timer.Cancel()
@@ -271,12 +287,11 @@ class IncludeAnalyzer(object):
     # few of them.
     links = self.compiler_defaults.system_links + self.mirror_path.Links()
     files = self.compress_files.Compress(include_closure, client_root_keeper)
+    hmaps = self.compress_files.Compress(hmap_closure, client_root_keeper)
 
     forcing_files = self._ForceDirectoriesToExist()
 
-    files_and_links = files + links + forcing_files
-
-    realpath_map = self.realpath_map
+    files_and_links = files + hmaps + links + forcing_files
 
     if basics.opt_verify:
       # Invoke the real preprocessor.
