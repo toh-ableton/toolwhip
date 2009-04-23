@@ -347,7 +347,7 @@ SRC =	src/stats.c							\
 
 HEADERS = src/stats.h							\
 	src/access.h							\
-	src/bulk.h							\
+	src/bulk.h src/byte_swapping.h					\
 	src/clinet.h src/compile.h					\
 	src/daemon.h							\
 	src/distcc.h src/dopt.h src/exitcode.h				\
