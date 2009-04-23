@@ -51,10 +51,10 @@ import struct
 import sys
 
 
-"""Returns a tuple of struct endian modifiers corresponding to native
-endianness ([0]) and other endianness ([1]).
-"""
 def _Endian():
+  """Returns a tuple of struct endian modifiers corresponding to native
+  endianness ([0]) and other endianness ([1]).
+  """
   (test,) = struct.unpack('H', '\1\2')
   if test == 513:
     return ('<', '>')
@@ -63,10 +63,10 @@ def _Endian():
   assert False
 
 
-"""Given a table of NUL-terminated strings in |strings|, returns the single
-string at offset |offset|.
-"""
 def _StringAtOffset(strings, offset):
+  """Given a table of NUL-terminated strings in |strings|, returns the single
+  string at offset |offset|.
+  """
   for index in xrange(offset, len(strings)):
     if strings[index] == '\0':
       return strings[offset:index]
@@ -79,31 +79,32 @@ def _StringAtOffset(strings, offset):
 _lowercase_ascii_translate = string.maketrans(string.ascii_uppercase,
                                               string.ascii_lowercase)
 
-"""Returns |s| with all uppercase ASCII characters changed to lowercase.
-Similar to string.lower() except it operates only on the ASCII set and is
-not subject to locale influence.
-"""
 def _LowercaseASCII(s):
+  """Returns |s| with all uppercase ASCII characters changed to lowercase.
+  Similar to string.lower() except it operates only on the ASCII set and is
+  not subject to locale influence.
+  """
   return string.translate(s, _lowercase_ascii_translate)
 
 
-"""A Headermap object reads an Xcode/Apple gcc header map and performs lookups
-on it.  The only public calls to Headermap are the constructor and the
-Resolve method.
-
-Headermap does not read the header map from disk until it is required.  Once
-needed, the entire header map is read and its data cached for subsequent uses.
-
-Headermap intentionally silently ignores errors.  If a header map does not
-exist or is malformed, a Headermap object will quietly return None in response
-to all calls to Resolve.
-
-Attributes:
-  map: A dict mapping names as they would be #included to paths on disk.
-  pathname: The on-disk pathname of the header map file.
-  read: A bool indicating whether Read has been called yet.
-"""
 class Headermap(object):
+  """A Headermap object reads an Xcode/Apple gcc header map and performs
+  lookups on it.  The only public calls to Headermap are the constructor and
+  the Resolve method.
+
+  Headermap does not read the header map from disk until it is required.  Once
+  needed, the entire header map is read and its data cached for subsequent
+  uses.
+
+  Headermap intentionally silently ignores errors.  If a header map does not
+  exist or is malformed, a Headermap object will quietly return None in
+  response to all calls to Resolve.
+
+  Attributes:
+    map: A dict mapping names as they would be #included to paths on disk.
+    pathname: The on-disk pathname of the header map file.
+    read: A bool indicating whether Read has been called yet.
+  """
   def __init__(self, pathname):
     self.map = {}
     self.pathname = pathname
@@ -196,13 +197,16 @@ class Headermap(object):
         prefix = _StringAtOffset(hmap, strings_offset + prefix_offset)
         suffix = _StringAtOffset(hmap, strings_offset + suffix_offset)
 
-        # TODO(mark): Make sure that Xcode doesn't trip this assertion when
-        # a project contains multiple headers of the same name but possibly
-        # different case.
-        assert not key in new_map
-
-        # Store the key.
-        new_map[key] = prefix + suffix
+        # Store the key.  The key may already be present in the map if the
+        # header map contains duplicate keys.  It seems like that shouldn't
+        # happen, but given that case conversion happens when the header map
+        # is read and not written, it's actually possible to wind up with
+        # duplicates.  When that happens, Apple gcc will only use the first
+        # occurrence due to the hash lookup scheme.  To maintain bug
+        # compatibility, this does the same, favoring the first occurrence of
+        # a key.
+        if not key in new_map:
+          new_map[key] = prefix + suffix
 
       # Store the map.
       self.map = new_map
@@ -211,12 +215,12 @@ class Headermap(object):
       # Silently ignore problems.
       pass
 
-  """Looks up |key|, an #include, in the header map.  Returns the path to the
-  appropriate header file.  If |key| is not found in the header map or any
-  other error occurs (including a missing or malformatted header map), returns
-  None.
-  """
   def Resolve(self, key):
+    """Looks up |key|, an #include, in the header map.  Returns the path to the
+    appropriate header file.  If |key| is not found in the header map or any
+    other error occurs (including a missing or malformatted header map), returns
+    None.
+    """
     if not self.read:
       self._Read()
 
@@ -225,12 +229,48 @@ class Headermap(object):
     return self.map.get(_LowercaseASCII(key), None)
 
 
-def main(args):
-  assert len(args) == 2
+class HeadermapCollection(object):
+  """A cache of a bunch of cached header maps.
 
-  path = Headermap(args[0]).Resolve(args[1])
-  if path:
-    print path
+  HeadermapCollection indexes Headermap objects by each header map's pathname.
+  It has one public method, Resolve.
+
+  Attributes:
+    headermaps: A dict keyed by header map pathnames, providing Headermap
+                objects.
+  """
+  def __init__(self):
+    self.headermaps = {}
+
+  def Resolve(self, headermap_path, key):
+    """Queries the Headermap at headermap_path for key, returning the resolved
+    path or None.
+    """
+    try:
+      hmap = self.headermaps[headermap_path]
+    except KeyError:
+      hmap = Headermap(headermap_path)
+      self.headermaps[headermap_path] = hmap
+
+    return hmap.Resolve(key)
+
+
+# Keep a global collection around for the include server to use.
+global_collection = HeadermapCollection()
+
+
+def main(args):
+  assert len(args) == 1 or len(args) == 2
+
+  headermap = Headermap(args[0])
+  if len(args) == 1:
+    headermap._Read()
+    for key in sorted(headermap.map.keys()):
+      print '%s\t%s' % (key, headermap.map[key])
+  else:
+    path = headermap.Resolve(args[1])
+    if path:
+      print path
 
   return 0
 
