@@ -3,13 +3,13 @@ TODO list for distcc
 --> See also TODO and FIXME comments in source files and doc/todo/
 
 
-should rewrite non-ELF, non-DWARF2 object files
+should rewrite non-ELF, non-DWARF2, non-Mach-O object files
 
-    The existing include-server code will rewrite ELF files to refer
-    to source-file names (in the DWARF2 sections) as they would appear
-    on the client machine, rather than as they appear when rewritten
-    on the server machine.  We should enhance that functionality to
-    work with other object formats, such as Mach-O (used by OS X).
+    The existing include-server code will rewrite ELF and Mach-O files
+    to refer to source-file names (in the DWARF2 sections) as they
+    would appear on the client machine, rather than as they appear when
+    rewritten on the server machine.  We should enhance that
+    functionality to work with other object formats.
 
 
 should probably actually check the number of CPUs for use on localhost
@@ -219,11 +219,6 @@ unlink .i file as soon as it has been opened for sending
 
 variable to add extra remote cflags, to handle icpc
 
-
-
-handle -xc++, etc
-
-    Can be either one or two arguments.
 
 
 handle -Wp,-MF
@@ -1117,6 +1112,14 @@ Packaging
 
     Is it easy to build a static (or LSB-compliant?) .rpm on Debian? [DONE]
     
+handle -xc++, etc
+
+    Can be either one or two arguments.
+
+should rewrite non-ELF, non-DWARF2, non-Mach-O object files
+
+    Mach-O is now handled.
+
 
 Local variables:
 mode: indented-text
