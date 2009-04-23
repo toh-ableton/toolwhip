@@ -20,8 +20,9 @@
 /* Authors: Fergus Henderson, Mark Mentovai */
 
 /*
- * fix_debug_info.cc:
- * Performs search-and-replace in the debug info section of an ELF file.
+ * fix_debug_info.c:
+ * Performs search-and-replace in the debug info section of an ELF or Mach-O
+ * file.
  */
 
 #include <config.h>
@@ -54,6 +55,7 @@
   #include <sys/mman.h>
 #endif
 
+#include "byte_swapping.h"
 #include "trace.h"
 #include "fix_debug_info.h"
 
@@ -62,99 +64,6 @@
 */
 #ifndef SHN_XINDEX
   #define SHN_XINDEX  SHN_HIRESERVE
-#endif
-
-/* Use OS-provided swapping functions when they're known to be available. */
-
-#if defined(__APPLE__)
-
-#include <libkern/OSByteOrder.h>
-
-static inline uint32_t maybe_swap_32(int swap, uint32_t x) {
-  if (swap)
-    return OSSwapInt32(x);
-  return x;
-}
-
-static inline uint64_t maybe_swap_64(int swap, uint64_t x) {
-  if (swap)
-    return OSSwapInt64(x);
-  return x;
-}
-
-static inline uint32_t swap_big_to_cpu_32(uint32_t x) {
-  return OSSwapBigToHostInt32(x);
-}
-
-static inline uint64_t swap_big_to_cpu_64(uint64_t x) {
-  return OSSwapBigToHostInt64(x);
-}
-
-#elif defined(linux)
-
-#include <asm/byteorder.h>
-
-static inline uint32_t maybe_swap_32(int swap, uint32_t x) {
-  if (swap)
-    return __swab32(x);
-  return x;
-}
-
-static inline uint64_t maybe_swap_64(int swap, uint64_t x) {
-  if (swap)
-    return __swab64(x);
-  return x;
-}
-
-static inline uint32_t swap_big_to_cpu_32(uint32_t x) {
-  return __be32_to_cpu(x);
-}
-
-static inline uint64_t swap_big_to_cpu_64(uint64_t x) {
-  return __be64_to_cpu(x);
-}
-
-#else
-
-/* If other systems provide swapping functions, they should be used in
- * preference to this fallback code. */
-
-static inline uint32_t maybe_swap_32(int swap, uint32_t x) {
-  if (!swap)
-    return x;
-
-  return  (x >> 24) |
-         ((x >> 8) & 0x0000ff00) |
-         ((x << 8) & 0x00ff0000) |
-          (x << 24);
-}
-
-static inline uint64_t maybe_swap_64(int swap, uint64_t x) {
-  if (!swap)
-    return x;
-
-  uint32_t* x32 = (uint32_t*)&x;
-  uint64_t y = maybe_swap_32(swap, x32[0]);
-  uint64_t z = maybe_swap_32(swap, x32[1]);
-  return (z << 32) | y;
-}
-
-static inline uint32_t swap_big_to_cpu_32(uint32_t x) {
-#ifdef WORDS_BIGENDIAN
-  return x;
-#else
-  return maybe_swap_32(1, x);
-#endif
-}
-
-static inline uint64_t swap_big_to_cpu_64(uint64_t x) {
-#ifdef WORDS_BIGENDIAN
-  return x;
-#else
-  return maybe_swap_64(1, x);
-#endif
-}
-
 #endif
 
 /*
