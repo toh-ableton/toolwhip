@@ -37,6 +37,7 @@
 
 #include "distcc.h"
 #include "dopt.h"
+#include "exitcode.h"
 #include "trace.h"
 #include "util.h"
 #include "xci_utils.h"
@@ -93,12 +94,12 @@ char *dcc_xci_read_whole_file(FILE *file, size_t *len) {
         pos += count;
 
         if (!count && ferror(file)) {
-          if (errno != EINTR) {
-            rs_log_error("fread failed: %s", strerror(errno));
-            goto out_error;
-          }
+            if (errno != EINTR) {
+                rs_log_error("fread failed: %s", strerror(errno));
+                goto out_error;
+            }
 
-          clearerr(file);
+            clearerr(file);
         }
     }
 
@@ -125,6 +126,29 @@ char *dcc_xci_read_whole_file(FILE *file, size_t *len) {
     if (output)
         free(output);
     return NULL;
+}
+
+/**
+ * Writes |len| characters from |buf| to |file|, handling EINTR and restarting
+ * the write as needed.  Returns 0 on success and EXIT_DISTCC_FAILED on
+ * failure.
+ **/
+int dcc_xci_write(FILE *file, const char *buf, size_t len) {
+    size_t pos = 0, written;
+
+    while (pos < len) {
+        written = fwrite(buf + pos, 1, len - pos, file);
+        if (written == 0) {
+            if (errno != EINTR) {
+                rs_log_error("fwrite() failed: %s", strerror(errno));
+                return EXIT_DISTCC_FAILED;
+            }
+            clearerr(file);
+        }
+        pos += written;
+    }
+
+    return 0;
 }
 
 /**

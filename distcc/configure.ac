@@ -112,7 +112,7 @@ XCODE_INTEGRATION_DISTCCD_OBJS=
 if test x"$enable_xcode_integration" = xyes ; then
     AC_DEFINE(XCODE_INTEGRATION, 1, [Enable Xcode integration])
     XCODE_INTEGRATION_COMMON_OBJS="src/xci_utils.o"
-    XCODE_INTEGRATION_DISTCCD_OBJS="src/xci_versinfo.o src/xci_zeroconf.o"
+    XCODE_INTEGRATION_DISTCCD_OBJS="src/xci_headermap.o src/xci_versinfo.o src/xci_zeroconf.o"
 fi
 
 AC_SUBST(XCODE_INTEGRATION_COMMON_OBJS)

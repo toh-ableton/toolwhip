@@ -342,7 +342,8 @@ SRC =	src/stats.c							\
 	src/dotd.c src/include_server_if.c				\
 	src/emaillog.c							\
 	src/fix_debug_info.c						\
-	src/xci_utils.c src/xci_versinfo.c src/xci_zeroconf.c		\
+	src/xci_headermap.c src/xci_utils.c src/xci_versinfo.c		\
+	src/xci_zeroconf.c						\
 	src/zeroconf.c src/zeroconf-reg.c src/gcc-id.c
 
 
