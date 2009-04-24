@@ -28,8 +28,12 @@
 
 #ifdef XCODE_INTEGRATION
 
+/* xci_headermap.c */
+int dcc_xci_headermap_fix(const char *headermap_path, const char *root_dir);
+
 /* xci_utils.c */
 char *dcc_xci_read_whole_file(FILE *file, size_t *len);
+int dcc_xci_write(FILE *file, const char *buf, size_t len);
 char *dcc_xci_run_command(const char *command_line);
 const char *dcc_xci_xcodeselect_path(void);
 char *dcc_xci_mask_developer_dir(const char *path);

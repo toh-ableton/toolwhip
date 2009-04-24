@@ -114,7 +114,7 @@ int dcc_r_many_files(int in_fd,
     /* NOTE: If this function is ever used for something besides pump
      * mode support for receiving things to be compiled, then it should
      * take another argument to include/exclude this fixup. */
-    char *xci_name, *xci_link_target;
+    char *xci_name, *xci_link_target, *extension;
 #endif
 
     if ((ret = dcc_r_token_int(in_fd, "NFIL", &n_files)))
@@ -194,6 +194,14 @@ int dcc_r_many_files(int in_fd,
             if ((ret = dcc_r_file(in_fd, name, link_or_file_len, compr))) {
                 goto out_cleanup;
             }
+#ifdef XCODE_INTEGRATION
+            if ((extension = dcc_find_extension(name))
+                 && !strcmp(extension, ".hmap")
+                 && (ret = dcc_xci_headermap_fix(name, dirname))) {
+                unlink(name);
+                goto out_cleanup;
+            }
+#endif
             if ((ret = dcc_add_cleanup(name))) {
               /* bailing out */
               unlink(name);

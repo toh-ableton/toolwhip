@@ -29,25 +29,25 @@
 
 #include <stdint.h>
 
-inline uint16_t swap_16(uint16_t x);
-inline uint32_t swap_32(uint32_t x);
-inline uint64_t swap_64(uint64_t x);
-inline uint16_t swap_big_to_cpu_16(uint16_t x);
-inline uint32_t swap_big_to_cpu_32(uint32_t x);
-inline uint64_t swap_big_to_cpu_64(uint64_t x);
-inline uint16_t maybe_swap_16(int swap, uint16_t x);
-inline uint32_t maybe_swap_32(int swap, uint32_t x);
-inline uint64_t maybe_swap_64(int swap, uint64_t x);
+static inline uint16_t swap_16(uint16_t x);
+static inline uint32_t swap_32(uint32_t x);
+static inline uint64_t swap_64(uint64_t x);
+static inline uint16_t swap_big_to_cpu_16(uint16_t x);
+static inline uint32_t swap_big_to_cpu_32(uint32_t x);
+static inline uint64_t swap_big_to_cpu_64(uint64_t x);
+static inline uint16_t maybe_swap_16(int swap, uint16_t x);
+static inline uint32_t maybe_swap_32(int swap, uint32_t x);
+static inline uint64_t maybe_swap_64(int swap, uint64_t x);
 
-inline uint16_t maybe_swap_16(int swap, uint16_t x) {
+static inline uint16_t maybe_swap_16(int swap, uint16_t x) {
   return swap ? swap_16(x) : x;
 }
 
-inline uint32_t maybe_swap_32(int swap, uint32_t x) {
+static inline uint32_t maybe_swap_32(int swap, uint32_t x) {
   return swap ? swap_32(x) : x;
 }
 
-inline uint64_t maybe_swap_64(int swap, uint64_t x) {
+static inline uint64_t maybe_swap_64(int swap, uint64_t x) {
   return swap ? swap_64(x) : x;
 }
 
@@ -57,27 +57,27 @@ inline uint64_t maybe_swap_64(int swap, uint64_t x) {
 
 #include <libkern/OSByteOrder.h>
 
-inline uint16_t swap_16(uint16_t x) {
+static inline uint16_t swap_16(uint16_t x) {
   return OSSwapInt16(x);
 }
 
-inline uint32_t swap_32(uint32_t x) {
+static inline uint32_t swap_32(uint32_t x) {
   return OSSwapInt32(x);
 }
 
-inline uint64_t swap_64(uint64_t x) {
+static inline uint64_t swap_64(uint64_t x) {
   return OSSwapInt64(x);
 }
 
-inline uint16_t swap_big_to_cpu_16(uint16_t x) {
+static inline uint16_t swap_big_to_cpu_16(uint16_t x) {
   return OSSwapBigToHostInt16(x);
 }
 
-inline uint32_t swap_big_to_cpu_32(uint32_t x) {
+static inline uint32_t swap_big_to_cpu_32(uint32_t x) {
   return OSSwapBigToHostInt32(x);
 }
 
-inline uint64_t swap_big_to_cpu_64(uint64_t x) {
+static inline uint64_t swap_big_to_cpu_64(uint64_t x) {
   return OSSwapBigToHostInt64(x);
 }
 
@@ -85,27 +85,27 @@ inline uint64_t swap_big_to_cpu_64(uint64_t x) {
 
 #include <asm/byteorder.h>
 
-inline uint16_t swap_16(uint16_t x) {
+static inline uint16_t swap_16(uint16_t x) {
   return __swab16(x);
 }
 
-inline uint32_t swap_32(uint32_t x) {
+static inline uint32_t swap_32(uint32_t x) {
   return __swab32(x);
 }
 
-inline uint64_t swap_64(uint64_t x) {
+static inline uint64_t swap_64(uint64_t x) {
   return __swab64(x);
 }
 
-inline uint16_t swap_big_to_cpu_16(uint16_t x) {
+static inline uint16_t swap_big_to_cpu_16(uint16_t x) {
   return __be16_to_cpu(x);
 }
 
-inline uint32_t swap_big_to_cpu_32(uint32_t x) {
+static inline uint32_t swap_big_to_cpu_32(uint32_t x) {
   return __be32_to_cpu(x);
 }
 
-inline uint64_t swap_big_to_cpu_64(uint64_t x) {
+static inline uint64_t swap_big_to_cpu_64(uint64_t x) {
   return __be64_to_cpu(x);
 }
 
@@ -114,25 +114,25 @@ inline uint64_t swap_big_to_cpu_64(uint64_t x) {
 /* If other systems provide swapping functions, they should be used in
  * preference to this fallback code. */
 
-inline uint16_t swap_16(uint16_t x) {
+static inline uint16_t swap_16(uint16_t x) {
   return (x >> 8) | (x << 8);
 }
 
-inline uint32_t swap_32(uint32_t x) {
+static inline uint32_t swap_32(uint32_t x) {
   return  (x >> 24) |
          ((x >> 8) & 0x0000ff00) |
          ((x << 8) & 0x00ff0000) |
           (x << 24);
 }
 
-inline uint64_t swap_64(uint64_t x) {
+static inline uint64_t swap_64(uint64_t x) {
   uint32_t* x32 = (uint32_t*)&x;
   uint64_t y = swap_32(x32[0]);
   uint64_t z = swap_32(x32[1]);
   return (z << 32) | y;
 }
 
-inline uint16_t swap_big_to_cpu_16(uint16_t x) {
+static inline uint16_t swap_big_to_cpu_16(uint16_t x) {
 #ifdef WORDS_BIGENDIAN
   return x;
 #else
@@ -140,7 +140,7 @@ inline uint16_t swap_big_to_cpu_16(uint16_t x) {
 #endif
 }
 
-inline uint32_t swap_big_to_cpu_32(uint32_t x) {
+static inline uint32_t swap_big_to_cpu_32(uint32_t x) {
 #ifdef WORDS_BIGENDIAN
   return x;
 #else
@@ -148,7 +148,7 @@ inline uint32_t swap_big_to_cpu_32(uint32_t x) {
 #endif
 }
 
-inline uint64_t swap_big_to_cpu_64(uint64_t x) {
+static inline uint64_t swap_big_to_cpu_64(uint64_t x) {
 #ifdef WORDS_BIGENDIAN
   return x;
 #else

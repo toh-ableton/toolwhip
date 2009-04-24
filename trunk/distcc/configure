@@ -3173,7 +3173,7 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
     XCODE_INTEGRATION_COMMON_OBJS="src/xci_utils.o"
-    XCODE_INTEGRATION_DISTCCD_OBJS="src/xci_versinfo.o src/xci_zeroconf.o"
+    XCODE_INTEGRATION_DISTCCD_OBJS="src/xci_headermap.o src/xci_versinfo.o src/xci_zeroconf.o"
 fi
 
 

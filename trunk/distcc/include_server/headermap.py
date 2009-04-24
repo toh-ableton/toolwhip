@@ -44,6 +44,9 @@ is available at:
 
 http://www.opensource.apple.com/darwinsource/DevToolsOct2008/gcc_42-5566/libcpp/include/cpplib.h
 http://www.opensource.apple.com/darwinsource/DevToolsOct2008/gcc_42-5566/gcc/c-incpath.c
+
+Also refer to the header map rewriter in the distccd server at
+src/xci_headermap.c.
 """
 
 import string
