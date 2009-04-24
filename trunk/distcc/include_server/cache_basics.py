@@ -870,7 +870,7 @@ class BuildStatCache(object):
           # We do not explictly take into account currdir_idx, because
           # of the check above that os.getcwd is set to current_dir.
           relpath = basics.PathFromDirMapEntryAndInclude(sl_str, includepath)
-          found = relpath and _OsPathIsFile(relpath)
+          found = relpath and _OsPathIsFile(relpath) or False
           searchdir_stats[sl_idx] = found
 
         if found:
