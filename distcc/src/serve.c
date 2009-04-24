@@ -338,9 +338,11 @@ static int dcc_check_compiler_masq(char *compiler_name)
 
 static const char *include_options[] = {
     "-I",
+    "-F",
     "-include",
     "-imacros",
     "-idirafter",
+    "-iframework",
     "-iprefix",
     "-iwithprefix",
     "-iwithprefixbefore",
