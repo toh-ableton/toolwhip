@@ -177,7 +177,7 @@ class Headermap(object):
       # This implementation loads the entire hash table at once and stores
       # the data in an equivalent Python dict.
 
-      for bucket_index in xrange(0, count):
+      for bucket_index in xrange(0, capacity):
         # Look at each bucket in the hash table.
         bucket_offset = header_size + bucket_index * bucket_size
         (key_offset, prefix_offset, suffix_offset) = \
