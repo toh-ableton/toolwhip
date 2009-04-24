@@ -43,6 +43,7 @@ done:
      * interleave them with -I - done
      * teach the include server to look in the Frameworks's Headers dir - done
      * handle subframework includes like apple gcc - done
+  * support header maps
 
 Things to point out to apple
   * we have no way to deal with header maps, which Xcode loves.  many projects rely on header maps (even if they don't intend to) because it's the Xcode default.  when USE_HEADERMAP=NO in Xcode (no UI for that setting), header maps are disabled; if things can be compiled locally with that setting, then pump mode ought to be able to handle them too.
