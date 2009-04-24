@@ -658,8 +658,6 @@ static void update_macho_section(const char *path,
                 "replaced %d occurrence%s of of \"%s\" with \"%s\"",
                 region_name, path, count, (count == 1) ? "" : "s",
                 search, replace);
-    if (count > 1)
-      rs_log_warning("only expected to replace one occurrence!");
   }
 }
 
