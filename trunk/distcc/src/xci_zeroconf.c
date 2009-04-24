@@ -38,7 +38,7 @@
 #include "distcc.h"
 #include "dopt.h"
 #include "trace.h"
-#include "xci_zeroconf.h"
+#include "xci.h"
 
 #if defined(HAVE_AVAHI) || defined(HAVE_DNSSD)
 

@@ -77,7 +77,7 @@
 #include "byte_swapping.h"
 #include "exitcode.h"
 #include "trace.h"
-#include "xci_utils.h"
+#include "xci.h"
 
 /* hmap_bucket, hmap_header_map, HMAP_MAGIC, and HMAP_NOT_A_KEY come from
  * Apple gcc's version of libcpp/include/cpplib.h. */

@@ -2,7 +2,6 @@
  *
  * distcc -- A simple distributed compiler system
  *
- * Copyright 2005-2008 Apple Computer, Inc.
  * Copyright 2009 Google Inc.
  *
  * This program is free software; you can redistribute it and/or
@@ -38,6 +37,14 @@ char *dcc_xci_run_command(const char *command_line);
 const char *dcc_xci_xcodeselect_path(void);
 char *dcc_xci_mask_developer_dir(const char *path);
 char *dcc_xci_unmask_developer_dir(const char *path);
+
+/* xci_versinfo.c */
+const char *dcc_xci_host_info_string(void);
+
+/* xci_zeroconf.c */
+#if defined(HAVE_AVAHI) || defined(HAVE_DNSSD)
+void *dcc_xci_zeroconf_register(void);
+#endif
 
 #endif /* XCODE_INTEGRATION */
 

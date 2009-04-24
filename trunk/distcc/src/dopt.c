@@ -48,7 +48,7 @@
 #include "exec.h"
 
 #ifdef XCODE_INTEGRATION
-  #include "xci_versinfo.h"
+  #include "xci.h"
 #endif
 
 int opt_niceness = 5;           /* default */

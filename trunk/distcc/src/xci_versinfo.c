@@ -44,8 +44,7 @@
 #include "dopt.h"
 #include "trace.h"
 #include "util.h"
-#include "xci_utils.h"
-#include "xci_versinfo.h"
+#include "xci.h"
 
 typedef struct _dcc_xci_compiler_info {
     char *raw_path;

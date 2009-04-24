@@ -49,7 +49,7 @@
 #include "bulk.h"
 #include "snprintf.h"
 #ifdef XCODE_INTEGRATION
-#  include "xci_utils.h"
+#  include "xci.h"
 #endif
 
 int dcc_r_request_header(int ifd,

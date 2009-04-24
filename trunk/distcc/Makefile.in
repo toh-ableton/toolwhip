@@ -368,7 +368,7 @@ HEADERS = src/stats.h							\
 	src/dotd.h src/include_server_if.h				\
 	src/emaillog.h							\
 	src/va_copy.h							\
-	src/xci_utils.h src/xci_versinfo.h src/xci_zeroconf.h		\
+	src/xci.h							\
 	src/zeroconf.h
 
 conf_dir = packaging/RedHat/conf

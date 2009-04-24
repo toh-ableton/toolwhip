@@ -73,7 +73,7 @@
 #include "zeroconf.h"
 
 #ifdef XCODE_INTEGRATION
-  #include "xci_zeroconf.h"
+  #include "xci.h"
 #endif
 
 static void dcc_nofork_parent(int listen_fd) NORETURN;

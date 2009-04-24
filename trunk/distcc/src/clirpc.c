@@ -47,7 +47,7 @@
 #include "include_server_if.h"
 #include "emaillog.h"
 #ifdef XCODE_INTEGRATION
-#  include "xci_utils.h"
+#  include "xci.h"
 #endif
 
 /**
