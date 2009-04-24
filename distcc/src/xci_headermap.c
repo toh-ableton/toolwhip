@@ -145,7 +145,7 @@ static int dcc_xci_headermap_fix_string(char **headermap,
                                         struct replacement *replacements) {
     struct hmap_header_map *hmap = (struct hmap_header_map *)*headermap;
     uint32_t hmap_string_offset;
-    struct replacement *r, *last_r;
+    struct replacement *r, *last_r = replacements;
     size_t new_str_len, new_size, new_capacity;
     char *new_headermap;
 
