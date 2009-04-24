@@ -93,7 +93,7 @@
 #include "fix_debug_info.h"
 
 #ifdef XCODE_INTEGRATION
-#  include "xci_versinfo.h"
+#  include "xci.h"
 #endif
 
 /**

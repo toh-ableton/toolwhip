@@ -40,7 +40,7 @@
 #include "exitcode.h"
 #include "trace.h"
 #include "util.h"
-#include "xci_utils.h"
+#include "xci.h"
 
 /* Xcode developer dir override.  If unset, the default will be used.  This
  * is here and not in dopt.c to avoid dragging in more code linkage to things
