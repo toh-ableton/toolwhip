@@ -46,12 +46,11 @@ done:
   * support header maps
 
 Things to point out to apple
-  * we have no way to deal with header maps, which Xcode loves.  many projects rely on header maps (even if they don't intend to) because it's the Xcode default.  when USE_HEADERMAP=NO in Xcode (no UI for that setting), header maps are disabled; if things can be compiled locally with that setting, then pump mode ought to be able to handle them too.
-  * the gcc version must also bump if the sdks change in any way due to how system headers are moved over the wire, they need to match between all machines so they see the same headers.
   * the way that /System/Library/LaunchDaemons/distccd.plist starts distccd must change.  USE_XCODE_SELECT_PATH is no longer used.  distccd should be invoked as distccd --no-detach --daemon --zeroconf --priority WHATEVER --allow 0.0.0.0/0
   * The way xcode picks slaves needs to take into account SDKs now:
      * if no SDK set in xcode project/target, only pick machines on the same major OS version.
      * if SDK set in xcode project/target, then as picking hosts only pick hosts that have that SDK installed.
+  * DISTCC_HOSTS needs to include the ",lzo,cpp" to enable lzo and pump mode, it currently turns off all features.
   * It might be nice to add --randomize to DISTCC_HOSTS, but that might interfere with Xcode's priority scheme.  Still, Xcode can randomize DISTCC_HOSTS a bit before invoking each distcc.
   * If distccd is started on a nonstandard port, Xcode doesn't honor the nonstandard port.  Xcode will hear the Bonjour advertisement but attempt to query it on the default port, 3632.  If the port is not the default, Xcode should append :port to the hostname, for example, box-o-bits.local:3633 if distccd is running on port 3633.  Both "distcc --host-info box-o-bits.local:3633" and putting box-o-bits.local:3633 in DISTCC_HOSTS already do the right thing.
 
