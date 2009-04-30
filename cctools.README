@@ -2,9 +2,6 @@ Apple cctools 698.1 Linux cross-toolchain patch
 Mark Mentovai
 2009 March 18
 
-cctools 698.1:
-http://www.opensource.apple.com/darwinsource/tarballs/apsl/cctools-698.1.tar.gz
-
 THE DEAL
 --------
 This patch allows the Apple cctools (essentially Apple's binutils equivalent)

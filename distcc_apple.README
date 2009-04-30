@@ -2,9 +2,6 @@ Apple distcc 1088 Linux patch
 Mark Mentovai
 2009 March 10
 
-distcc 1088:
-http://www.opensource.apple.com/darwinsource/tarballs/other/distcc-1088.tar.gz
-
 THE DEAL
 --------
 Note: This work is mostly being abandoned in favor of integrating a newer

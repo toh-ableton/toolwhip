@@ -2,9 +2,6 @@ Apple ld64 85.2.1 Linux cross-toolchain patch
 Mark Mentovai
 2009 March 6
 
-ld64 85.2.1:
-http://www.opensource.apple.com/darwinsource/tarballs/apsl/ld64-85.2.1.tar.gz
-
 THE DEAL
 --------
 This patch allows Apple ld64 (the linker) to be built on Linux, forming a
