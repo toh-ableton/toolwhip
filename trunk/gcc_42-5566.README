@@ -2,9 +2,6 @@ Apple gcc_42 5566 Linux cross-toolchain patch
 Mark Mentovai
 2009 March 18
 
-gcc_42-5566:
-http://www.opensource.apple.com/darwinsource/tarballs/other/gcc_42-5566.tar.gz
-
 THE DEAL
 --------
 This patch allows the Apple-customized version of gcc 4.2 to be built on Linux,

@@ -2,9 +2,6 @@ distcc 3.1 Xcode integration
 Mark Mentovai and Tom Van Lenten
 2009 March 13 - 2009 April 15
 
-distcc 3.1:
-http://distcc.googlecode.com/files/distcc-3.1.tar.bz2
-
 THE DEAL
 --------
 As of 3.1.2, Xcode bundles a fork of an older version of distcc,
