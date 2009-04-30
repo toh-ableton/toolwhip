@@ -125,13 +125,15 @@ int dcc_randomize_host_list(struct dcc_hostdef **host_list, int length);
 int dcc_compare_container(const void *a, const void *b);
 
 
-#ifndef HAVE_STRNDUP
+#ifdef HAVE_STRNDUP
+#define my_strndup(src, size) strndup(src, size)
+#else
 /**
  * Copy at most @p size characters from @p src, plus a terminating nul.
  *
  * Really this needs to be in util.c, but it's only used here.
  **/
-static char *strndup(const char *src, size_t size)
+static char *my_strndup(const char *src, size_t size)
 {
     char *dst;
 
@@ -535,7 +537,7 @@ int dcc_parse_hosts(const char *where, const char *source_name,
     curr->is_up = 1;
 
         /* Store verbatim hostname */
-        if (!(curr->hostdef_string = strndup(token_start, (size_t) token_len))) {
+        if (!(curr->hostdef_string = my_strndup(token_start, (size_t) token_len))) {
             rs_log_crit("failed to allocate hostdef_string");
             return EXIT_OUT_OF_MEMORY;
         }
