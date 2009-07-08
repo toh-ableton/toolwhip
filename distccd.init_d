@@ -1,0 +1,39 @@
+#!/bin/bash
+
+DISTCCD=/Developer/usr/bin/distccd
+
+RUN_AS=toolwhip
+
+ALLOW="--allow 0.0.0.0/0"
+#JOBS=4
+SYSTEM_VERSION="10.5.7 (9J61, i386)"
+
+case "$1" in
+  'start')
+    echo "Starting distccd"
+    sudo -u "${RUN_AS}" "${DISTCCD}" \
+        --daemon --zeroconf \
+        ${ALLOW} \
+        ${JOBS:+--jobs "${JOBS}"} \
+        ${SYSTEM_VERSION:+--system-version "${SYSTEM_VERSION}"}
+    ;;
+
+  'stop')
+    echo "Stopping distccd"
+    killall -u "${RUN_AS}" "${DISTCCD}"
+    ;;
+
+  'restart')
+    $0 stop
+    $0 start
+    ;;
+
+  'stopall')
+    $0 stop
+    ;;
+
+  *)
+    echo "What?" >&2
+    exit 1
+    ;;
+esac
