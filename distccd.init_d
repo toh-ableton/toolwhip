@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# chkconfig: 2345 96 04
+# description: Distributed compilation server
+
 DISTCCD=/Developer/usr/bin/distccd
 
 RUN_AS=toolwhip
