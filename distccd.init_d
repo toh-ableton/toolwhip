@@ -11,10 +11,14 @@ ALLOW="--allow 0.0.0.0/0"
 #JOBS=4
 SYSTEM_VERSION="10.5.7 (9J61, i386)"
 
+if [ -n "${RUN_AS}" ] && [ "${RUN_AS}" != "${USER}" ] ; then
+  SWITCH_USER="sudo -u ${RUN_AS}"
+fi
+
 case "$1" in
   'start')
     echo "Starting distccd"
-    sudo -u "${RUN_AS}" "${DISTCCD}" \
+    ${SWITCH_USER} "${DISTCCD}" \
         --daemon --zeroconf \
         ${ALLOW} \
         ${JOBS:+--jobs "${JOBS}"} \
