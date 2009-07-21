@@ -100,7 +100,9 @@ int dcc_standalone_server(void)
     int n_cpus;
     int ret;
 #ifdef HAVE_AVAHI
+#if 0  // http://code.google.com/p/toolwhip/issues/detail?id=3
     void *avahi = NULL;
+#endif  // http://code.google.com/p/toolwhip/issues/detail?id=3
 #endif
 
     if ((ret = dcc_socket_listen(arg_port, &listen_fd, opt_listen_addr)) != 0)
@@ -143,8 +145,10 @@ int dcc_standalone_server(void)
     /* Zeroconf registration */
     if (opt_zeroconf) {
 #ifdef HAVE_AVAHI
+#if 0  // http://code.google.com/p/toolwhip/issues/detail?id=3
         if (!(avahi = dcc_zeroconf_register((uint16_t) arg_port, n_cpus)))
             return EXIT_CONNECT_FAILED;
+#endif  // http://code.google.com/p/toolwhip/issues/detail?id=3
 #endif
 #ifdef XCODE_INTEGRATION
         dcc_xci_zeroconf_register();
@@ -166,11 +170,13 @@ int dcc_standalone_server(void)
     }
 
 #ifdef HAVE_AVAHI
+#if 0  // http://code.google.com/p/toolwhip/issues/detail?id=3
     /* Remove zeroconf registration */
     if (opt_zeroconf) {
         if (dcc_zeroconf_unregister(avahi) != 0)
             return EXIT_CONNECT_FAILED;
     }
+#endif  // http://code.google.com/p/toolwhip/issues/detail?id=3
 #endif
 
     return ret;
