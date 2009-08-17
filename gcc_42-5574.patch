@@ -1,6 +1,6 @@
-diff -U8 -r gcc_42-5566.orig/driverdriver.c gcc_42-5566/driverdriver.c
---- gcc_42-5566.orig/driverdriver.c	2008-09-23 02:11:23.000000000 -0400
-+++ gcc_42-5566/driverdriver.c	2009-03-18 12:37:14.886983000 -0400
+diff -U8 -r gcc_42-5574.orig/driverdriver.c gcc_42-5574/driverdriver.c
+--- gcc_42-5574.orig/driverdriver.c	2008-09-23 02:11:23.000000000 -0400
++++ gcc_42-5574/driverdriver.c	2009-08-16 20:07:13.060073474 -0400
 @@ -185,16 +185,17 @@
  static int get_prog_name_len (const char *prog);
  
@@ -76,9 +76,9 @@ diff -U8 -r gcc_42-5566.orig/driverdriver.c gcc_42-5566/driverdriver.c
  get_driver_name (const char *arch_name)
  {
    char *driver_name;
-diff -U8 -r gcc_42-5566.orig/gcc/config/darwin-driver.c gcc_42-5566/gcc/config/darwin-driver.c
---- gcc_42-5566.orig/gcc/config/darwin-driver.c	2008-03-25 18:29:23.000000000 -0400
-+++ gcc_42-5566/gcc/config/darwin-driver.c	2009-03-06 23:10:23.649965000 -0500
+diff -U8 -r gcc_42-5574.orig/gcc/config/darwin-driver.c gcc_42-5574/gcc/config/darwin-driver.c
+--- gcc_42-5574.orig/gcc/config/darwin-driver.c	2008-03-25 18:29:23.000000000 -0400
++++ gcc_42-5574/gcc/config/darwin-driver.c	2009-08-16 20:07:13.065292116 -0400
 @@ -151,16 +151,17 @@
        (*argv_p)[0] = argv[0];
        (*argv_p)[1] = xstrdup ("-miphoneos-version-min=2.0");
@@ -117,9 +117,9 @@ diff -U8 -r gcc_42-5566.orig/gcc/config/darwin-driver.c gcc_42-5566/gcc/config/d
    (*argv_p)[1] = new_flag;
    memcpy (*argv_p + 2, argv + 1, (argc - 1) * sizeof (char *));
    return;
-diff -U8 -r gcc_42-5566.orig/gcc/configure gcc_42-5566/gcc/configure
---- gcc_42-5566.orig/gcc/configure	2007-06-22 20:16:40.000000000 -0400
-+++ gcc_42-5566/gcc/configure	2009-03-06 22:39:51.841017000 -0500
+diff -U8 -r gcc_42-5574.orig/gcc/configure gcc_42-5574/gcc/configure
+--- gcc_42-5574.orig/gcc/configure	2007-06-22 20:16:40.000000000 -0400
++++ gcc_42-5574/gcc/configure	2009-08-16 20:07:13.069291961 -0400
 @@ -13320,17 +13320,17 @@
    # CROSS_SYSTEM_HEADER_DIR is just
    # $(TARGET_SYSTEM_ROOT)$(NATIVE_SYSTEM_HEADER_DIR).
@@ -139,9 +139,9 @@ diff -U8 -r gcc_42-5566.orig/gcc/configure gcc_42-5566/gcc/configure
  	# because of the fat library support.  Of course, it must be the
  	# same version of Darwin on both sides.  Allow the user to
  	# just say --target=foo-darwin without a version number to mean
-diff -U8 -r gcc_42-5566.orig/gcc/configure.ac gcc_42-5566/gcc/configure.ac
---- gcc_42-5566.orig/gcc/configure.ac	2008-03-31 15:07:15.000000000 -0400
-+++ gcc_42-5566/gcc/configure.ac	2009-03-06 22:40:36.770651000 -0500
+diff -U8 -r gcc_42-5574.orig/gcc/configure.ac gcc_42-5574/gcc/configure.ac
+--- gcc_42-5574.orig/gcc/configure.ac	2008-03-31 15:07:15.000000000 -0400
++++ gcc_42-5574/gcc/configure.ac	2009-08-16 20:07:13.069291961 -0400
 @@ -1749,17 +1749,17 @@
    # CROSS_SYSTEM_HEADER_DIR is just 
    # $(TARGET_SYSTEM_ROOT)$(NATIVE_SYSTEM_HEADER_DIR).
