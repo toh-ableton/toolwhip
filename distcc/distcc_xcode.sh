@@ -26,7 +26,6 @@
 # DISTCC_HOSTS environment variable, and xcodebuild resets that variable,
 # this script is used to catch what Xcode does and re-reset the variable
 # when pump mode is desired.
-#
 
 # If no include server, just enable lzo.
 DISTCC_MODES="lzo"
@@ -50,6 +49,6 @@ done
 
 export DISTCC_HOSTS="${NEW_DISTCC_HOSTS}"
 
-exec "/usr/bin/distcc_real" "${@}"
+exec "${0}_real" "${@}"
 
 exit 1
