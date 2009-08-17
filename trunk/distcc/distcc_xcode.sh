@@ -19,7 +19,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
 # USA.
 
-# Author: Mark Mentovai
+# Authors: Mark Mentovai, Thomas Van Lenten
 
 # This is a temporary integration shim to allow xcodebuild-driven builds
 # to use distcc pump mode.  Because pump mode is enabled in part by the
@@ -27,41 +27,29 @@
 # this script is used to catch what Xcode does and re-reset the variable
 # when pump mode is desired.
 #
-# Move /Developer/usr/bin/distcc to /Developer/usr/bin/distcc.orig, place
-# this script at /Developer/usr/bin/distcc, and place toolwhip distcc at
-# /Developer/usr/bin/distcc.my.
-#
-# Move /usr/bin/distccd to /usr/bin/distccd.orig and place toolwhip distccd
-# at /usr/bin/distccd.  The launch daemon that runs distccd does not know how
-# to start toolwhip distccd, so, um, don't run toolwhip distccd from launchd
-# for now.  Xcode runs distccd --host-info to determine localy capabilities,
-# so you need to replace /usr/bin/distccd even on systems where you don't
-# run distccd servers, because you need to get the distcc versions reported
-# to Xcode to match across the board.
-#
-# To use, set DISTCC_HOSTS and run "pump xcodebuild".  DISTCC_HOSTS needs to
-# be set when you start pump.  xcodebuild will reset DISTCC_HOSTS according to
-# the user's preferences (Bonjour, whatever) and this script will then catch
-# that and rewrite it.  Rewriting only occurs if it appears that things are
-# happening in pump mode by the presence of the INCLUDE_SERVER_PORT variable.
-# Rewriting also only occurs if there are no occurrences of ,cpp in
-# DISTCC_HOSTS.
 
-if [ -n "${INCLUDE_SERVER_PORT}" ] && \
-    echo "${DISTCC_HOSTS}" | grep -Fvq ,cpp ; then
-  for host in ${DISTCC_HOSTS} ; do
-    if [ "${host}" = "localhost" ] ; then
-      # Don't rewrite localhost.  When distcc finds localhost by itself
-      # without anything appended, it just runs the compilation locally
-      # without trying to connect to a local distccd.
-      NEW_DISTCC_HOSTS="${NEW_DISTCC_HOSTS} ${host}"
-    else
-      NEW_DISTCC_HOSTS="${NEW_DISTCC_HOSTS} ${host},lzo,cpp"
-    fi
-  done
-  DISTCC_HOSTS="${NEW_DISTCC_HOSTS}"
+# If no include server, just enable lzo.
+DISTCC_MODES="lzo"
+NEW_DISTCC_HOSTS=""
+if [ -n "${INCLUDE_SERVER_PORT}" ] ; then
+  DISTCC_MODES="lzo,cpp"
+  # Add in --randomize to also distribute things to a different host each time.
+  NEW_DISTCC_HOSTS="--randomize"
 fi
 
-exec "$(dirname "${0}")/distcc.my" "${@}"
+for host in ${DISTCC_HOSTS} ; do
+  if [ "${host}" = "localhost" ] ; then
+    # Don't rewrite localhost.  When distcc finds localhost by itself
+    # without anything appended, it just runs the compilation locally
+    # without trying to connect to a local distccd.
+    NEW_DISTCC_HOSTS="${NEW_DISTCC_HOSTS} ${host}"
+  else
+    NEW_DISTCC_HOSTS="${NEW_DISTCC_HOSTS} ${host},${DISTCC_MODES}"
+  fi
+done
+
+export DISTCC_HOSTS="${NEW_DISTCC_HOSTS}"
+
+exec "/usr/bin/distcc_real" "${@}"
 
 exit 1

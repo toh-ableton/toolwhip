@@ -94,15 +94,12 @@ DISTCC_HOSTS environment variable to be set.  In addition, in order to enable
 pump mode, each host in the DISTCC_HOSTS list must contain ",lzo,cpp" in its
 specification.  This conflicts with Xcode's setting of the DISTCC_HOSTS
 environment variable: Xcode does not place ",lzo,cpp".  As a workaround,
-place the real distcc binary at /Developer/usr/bin/distcc.my, and put
+place the real distcc binary at /Developer/usr/bin/distcc_real, and put
 distcc_xcode.sh at /Developer/usr/bin/distcc.  This shell script wrapper
 around distcc attempts to determine if it looks like pump mode is desired,
 and if so, it rewrites DISTCC_HOSTS as set by Xcode to add ",lzo,cpp" to
-the host specifications.
-
-NOTE: It might be a good idea to put --randomize before any hosts in
-DISTCC_HOSTS as well, but that would conflict with Xcode's priority
-assessments.  (Perhaps Xcode could perform its own randomization?)
+the host specifications.  It may be worthwhile to move /usr/bin/distcc to
+/usr/bin/distcc_real and place distcc_xcode.sh at /usr/bin/distcc as well.
 
 Because the include server's lifetime must be scoped exactly to a single
 build operation, it currently works best with the "xcodebuild" command-line
