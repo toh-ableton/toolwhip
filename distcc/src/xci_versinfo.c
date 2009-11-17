@@ -372,35 +372,51 @@ static const dcc_xci_compiler_info *dcc_xci_parse_distcc_compilers(void) {
             }
             snprintf(cmd, cmd_len, "%s%s", ci->absolute_path, version_args);
             if (!(version_output = dcc_xci_run_command(cmd)))
-                goto next_line;
+                goto next_compiler;
 
-            /* The version is on a line by itself beginning with
-             * "gcc version ".  It's never on the first line of output, so
-             * it's safe to match with a leading '\n'. */
-            static const char version_pattern[] = "\ngcc version ";
-            char *version = strstr(version_output, version_pattern);
-            if (!version) {
-                rs_log_warning("could not determine version for \"%s\"",
-                               ci->absolute_path);
-                goto next_line;
+            /* The version is on the first line containing the substring
+             * " version ".  Use that entire line as the compiler's version
+             * string.  Loop over each of the lines in the output looking for
+             * this pattern.  If it's not found, skip the compiler. */
+            char *v_line_start = version_output;
+            while (v_line_start && v_line_start[0] != '\0') {
+                /* Find the end of the line. */
+                char *v_line_end = strchr(v_line_start, '\n');
+                char *v_line;
+                if (!v_line_end) {
+                    /* Last line, unterminated. */
+                    if (!(v_line = strdup(v_line_start))) {
+                        rs_log_error("strdup() failed: %s\n", strerror(errno));
+                        goto out_error;
+                    }
+                } else {
+                    if (!(v_line = malloc(v_line_end - v_line_start + 1))) {
+                        rs_log_error("malloc() failed: %s\n", strerror(errno));
+                        goto out_error;
+                    }
+                    strncpy(v_line, v_line_start, v_line_end - v_line_start);
+                    v_line[v_line_end - v_line_start] = '\0';
+                }
+
+                static const char version_pattern[] = " version ";
+                char *version = strstr(v_line, version_pattern);
+                if (version) {
+                    ci->version = v_line;
+                    break;
+                } else {
+                    free(v_line);
+                }
+
+                /* Move on to the next line. */
+                v_line_start = v_line_end;
+                if (v_line_start && v_line_start[0] != '\0')
+                    ++v_line_start;
             }
 
-            /* The entire line is the version string.  Move past the newline
-             * at the beginning of version_pattern and take everything up
-             * to the next newline. */
-            ++version;
-            char *version_end = strchr(version, '\n');
-            if (!version_end) {
+            if (!ci->version) {
                 rs_log_warning("could not determine end of version for \"%s\"",
                                ci->absolute_path);
-                goto next_line;
-            }
-            *version_end = '\0';
-
-            if (!(ci->version = strdup(version))) {
-                rs_log_error("strdup(\"%s\") failed: %s",
-                             version, strerror(errno));
-                goto out_error;
+                goto next_compiler;
             }
 
             /* Insert the new compiler into the list. */
@@ -416,7 +432,7 @@ static const dcc_xci_compiler_info *dcc_xci_parse_distcc_compilers(void) {
             free(version_output);
             version_output = NULL;
         } else {
-          next_line:
+          next_compiler:
             /* It's not an error if the compiler isn't present or doesn't
              * have the expected version string, just don't add it to the list
              * of compilers. */
