@@ -372,7 +372,7 @@ static const dcc_xci_compiler_info *dcc_xci_parse_distcc_compilers(void) {
             }
             snprintf(cmd, cmd_len, "%s%s", ci->absolute_path, version_args);
             if (!(version_output = dcc_xci_run_command(cmd)))
-                goto out_error;
+                goto next_line;
 
             /* The version is on a line by itself beginning with
              * "gcc version ".  It's never on the first line of output, so
@@ -380,9 +380,9 @@ static const dcc_xci_compiler_info *dcc_xci_parse_distcc_compilers(void) {
             static const char version_pattern[] = "\ngcc version ";
             char *version = strstr(version_output, version_pattern);
             if (!version) {
-                rs_log_error("could not determine version for \"%s\"",
-                             ci->absolute_path);
-                goto out_error;
+                rs_log_warning("could not determine version for \"%s\"",
+                               ci->absolute_path);
+                goto next_line;
             }
 
             /* The entire line is the version string.  Move past the newline
@@ -391,9 +391,9 @@ static const dcc_xci_compiler_info *dcc_xci_parse_distcc_compilers(void) {
             ++version;
             char *version_end = strchr(version, '\n');
             if (!version_end) {
-                rs_log_error("could not determine end of version for \"%s\"",
-                             ci->absolute_path);
-                goto out_error;
+                rs_log_warning("could not determine end of version for \"%s\"",
+                               ci->absolute_path);
+                goto next_line;
             }
             *version_end = '\0';
 
@@ -416,8 +416,10 @@ static const dcc_xci_compiler_info *dcc_xci_parse_distcc_compilers(void) {
             free(version_output);
             version_output = NULL;
         } else {
-            /* It's not an error if the compiler isn't present, just don't
-             * add it to the list of compilers. */
+          next_line:
+            /* It's not an error if the compiler isn't present or doesn't
+             * have the expected version string, just don't add it to the list
+             * of compilers. */
             free(ci->absolute_path);
             free(ci->raw_path);
             free(ci);
