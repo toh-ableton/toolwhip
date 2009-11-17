@@ -219,11 +219,14 @@ def _IsMachO(filename):
     '''Given a filename, determine if it's an Mach-O object file or
     executable.  The magic number used ('0xcafebabe' or '0xfeedface')
     is taken from /usr/share/file/magic on an ubuntu machine.
+    10.4 (Tiger) added '0xfeedfacf' for 64bit.
     '''
     contents = _FirstBytes(filename, 10)
     return (contents.startswith('\xCA\xFE\xBA\xBE') or
             contents.startswith('\xFE\xED\xFA\xCE') or
             contents.startswith('\xCE\xFA\xED\xFE') or
+            contents.startswith('\xFE\xED\xFA\xCF') or
+            contents.startswith('\xCF\xFA\xED\xFE') or
             # The magic file says '4-bytes (BE) & 0xfeffffff ==
             # 0xfeedface' and '4-bytes (LE) & 0xfffffffe ==
             # 0xfeedface' are also mach-o.
