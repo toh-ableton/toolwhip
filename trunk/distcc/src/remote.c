@@ -118,7 +118,7 @@ static int dcc_wait_for_cpp(pid_t cpp_pid,
 
 static const char *dcc_map_optx_language_for_cpp(const char *language) {
     /* These are the only types we allowed in arg.c */
-    
+
     if (!strcmp(language, "c")) {
         return "cpp-output";
     } else if (!strcmp(language, "c++")) {
@@ -128,7 +128,7 @@ static const char *dcc_map_optx_language_for_cpp(const char *language) {
     } else if (!strcmp(language, "objective-c++")) {
         return "objc++-cpp-output";
     } else if (!strcmp(language, "cpp-output")
-               || !strcmp(language, "c++cpp-output")
+               || !strcmp(language, "c++-cpp-output")
                || !strcmp(language, "objc-cpp-output")
                || !strcmp(language, "objc++-cpp-output")) {
         /* Preprocessed input is not preprocessed any further, so these
@@ -159,7 +159,7 @@ dcc_send_header(int net_fd,
         return ret;
     if ((ret = dcc_xci_mask_developer_dir_in_argv(new_argv)))
         return ret;
-  
+
     tcp_cork_sock(net_fd, 1);
 
     if ((ret = dcc_x_req_header(net_fd, host->protover)))
@@ -194,7 +194,7 @@ dcc_send_header(int net_fd,
 
     dcc_free_argv(new_argv);
     return 0;
-  
+
   out_error:
     if (new_argv)
         dcc_free_argv(new_argv);
